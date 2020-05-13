@@ -1,0 +1,9 @@
+{
+  "name": "node-usbspy",
+  "version": "1.0.0",
+  "main": "main.js",
+  "devDependencies": {
+    "es6-promise": "^4.2.8",
+    "nan": "^2.14.1"
+  }
+}
