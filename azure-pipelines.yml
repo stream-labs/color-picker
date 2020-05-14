@@ -38,7 +38,7 @@ jobs:
     displayName: 'Install dependencies'
 
   - script: './ci/win-build.cmd'
-    displayName: 'Build usb-notification'
+    displayName: 'Build color-picker'
 
   - task: ArchiveFiles@2
     displayName: 'Generate artifact'
@@ -92,6 +92,6 @@ jobs:
     displayName: 'Deploy to GitHub'
     inputs:
       gitHubConnection: stream-labs_deploy
-      repositoryName: stream-labs/usb-notification
+      repositoryName: stream-labs/color-picker
       assets: $(System.ArtifactsDirectory)/*.tar.gz
     
