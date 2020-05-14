@@ -17,6 +17,9 @@
 #include <ios>
 #include <iomanip>
 
+#define MOUSECLICK_EVENT "mouseClick"
+#define MOUSEMOVE_EVENT "mouseMove"
+
 using namespace Nan;
 using namespace v8;
 
@@ -53,9 +56,6 @@ void ColorPicker::HandleProgressCallback(const Color* data, size_t size) {
 
     v8::Local<v8::Object> eventInfo = Nan::New<v8::Object>();
     Nan::Set(eventInfo, Nan::New("event").ToLocalChecked(), New<v8::String>(data->event.c_str()).ToLocalChecked());
-    Nan::Set(eventInfo, Nan::New("red").ToLocalChecked(), New<v8::Number>(data->redValue));
-    Nan::Set(eventInfo, Nan::New("green").ToLocalChecked(), New<v8::Number>(data->greenValue));
-    Nan::Set(eventInfo, Nan::New("blue").ToLocalChecked(), New<v8::Number>(data->blueValue));
     Nan::Set(eventInfo, Nan::New("hex").ToLocalChecked(), New<v8::String>(data->hex.c_str()).ToLocalChecked());
     v8::Local<v8::Value> argv[] = {eventInfo};
 
@@ -68,11 +68,12 @@ void ColorPicker::HandleProgressCallback(const Color* data, size_t size) {
 }
 
 void ColorPicker::GetPixelColorOnCursor() {
-    POINT cursorPosition;
-    COLORREF color;
+    POINT cursorPos;
+    COLORREF colorRef;
     HDC screenDC;
     BOOL result;
     bool exit = false;
+    int swappedMouseButton = GetSystemMetrics(SM_SWAPBUTTON);
 
     while (!exit) {
         screenDC = GetDC(nullptr);
@@ -80,37 +81,31 @@ void ColorPicker::GetPixelColorOnCursor() {
             continue;
         }
 
-        result = GetCursorPos(&cursorPosition);
+        result = GetCursorPos(&cursorPos);
         if (!result) {
             ReleaseDC(GetDesktopWindow(), screenDC);
             continue;
         }
 
-        color = GetPixel(screenDC, cursorPosition.x, cursorPosition.y);
-        if (color == CLR_INVALID) {
+        colorRef = GetPixel(screenDC, cursorPos.x, cursorPos.y);
+        if (colorRef == CLR_INVALID) {
             ReleaseDC(GetDesktopWindow(), screenDC);
             continue;
         }
 
         ReleaseDC(GetDesktopWindow(), screenDC);
 
-        int red = GetRValue(color);
-        int green = GetGValue(color);
-        int blue = GetBValue(color);
-
         auto* colorInfo = new Color;
-        colorInfo->redValue = red;
-        colorInfo->greenValue = green;
-        colorInfo->blueValue = blue;
-        colorInfo->hex = GetColorHex(red, green, blue);
+        colorInfo->hex = GetColorHex(colorRef);
 
-        if (GetAsyncKeyState(VK_LBUTTON) & 0x8000) {
-            colorInfo->event = "mouseClick";
+        if ((swappedMouseButton == 0 && GetAsyncKeyState(VK_LBUTTON) & 0x8000) ||
+            (swappedMouseButton != 0 && GetAsyncKeyState(VK_RBUTTON) & 0x8000)) {
+            colorInfo->event = MOUSECLICK_EVENT;
             g_colorInfo = colorInfo;
             SetEvent(g_colorEvent);
             exit = true;
         } else {
-            colorInfo->event = "mouseMovement";
+            colorInfo->event = MOUSEMOVE_EVENT;
             g_colorInfo = colorInfo;
             SetEvent(g_colorEvent);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -118,15 +113,15 @@ void ColorPicker::GetPixelColorOnCursor() {
     }
 }
 
-std::string ColorPicker::GetColorHex(int red, int green, int blue) {
+std::string ColorPicker::GetColorHex(COLORREF &ref) {
     std::stringstream redHex;
-    redHex << std::setfill('0') << std::setw(2) << std::right << std::hex << red;
+    redHex << std::setfill('0') << std::setw(2) << std::right << std::hex << static_cast<int>(GetRValue(ref));
 
     std::stringstream greenHex;
-    greenHex << std::setfill('0') << std::setw(2) << std::right << std::hex << green;
+    greenHex << std::setfill('0') << std::setw(2) << std::right << std::hex << static_cast<int>(GetGValue(ref));
 
     std::stringstream blueHex;
-    blueHex << std::setfill('0') << std::setw(2) << std::right << std::hex << blue;
+    blueHex << std::setfill('0') << std::setw(2) << std::right << std::hex << static_cast<int>(GetBValue(ref));
 
     std::stringstream colorHex;
     colorHex << redHex.str() << greenHex.str() << blueHex.str();

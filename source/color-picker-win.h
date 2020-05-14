@@ -20,27 +20,20 @@
 
 struct Color {
     std::string event;
-    int redValue;
-    int greenValue;
-    int blueValue;
     std::string hex;
 };
 
 class ColorPicker : public Nan::AsyncProgressQueueWorker<Color> {
 public:
-    enum THREAD_MSG {
-        CLOSE
-    };
-
     ColorPicker(Nan::Callback* cb, Nan::Callback* event);
-    ~ColorPicker();
+    ~ColorPicker() override;
 
-    void Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress);
-    void HandleProgressCallback(const Color* data, size_t size);
+    void Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) override;
+    void HandleProgressCallback(const Color* data, size_t size) override;
 
 private:
     static void GetPixelColorOnCursor();
-    static std::string GetColorHex(int red, int green, int blue);
+    static std::string GetColorHex(COLORREF &ref);
 
     std::thread m_getColorThread;
     Nan::Callback* m_event;
