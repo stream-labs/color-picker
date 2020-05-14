@@ -65,7 +65,6 @@ jobs:
 - job: 'Deploy'
   dependsOn:
   - Windows64
-  - MacOS
 
   condition: and(succeeded(), contains(variables['Build.SourceBranch'], 'tags'))
 
