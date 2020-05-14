@@ -1,0 +1,97 @@
+trigger:
+  branches:
+    include:
+      - master
+  tags:
+    include:
+      - '*'
+
+variables:
+  WinGenerator: Visual Studio 16 2019
+  WinType: x64
+  RuntimeURL: https://atom.io/download/atom-shell
+  RuntimeName: iojs
+  RuntimeVersion: v6.0.3
+  DistributionAritfact: $(RuntimeName)-$(RuntimeVersion)-color-picker
+
+jobs:
+- job: 'Windows64'
+  pool:
+    vmImage: 'windows-2019'
+
+  workspace:
+    clean: all
+
+  steps:
+  - powershell: git config --global core.autocrlf false
+    displayName: 'Set Unix checkout for git'
+
+  - checkout: self
+    fetchDepth: 10
+
+  - task: NodeTool@0
+    displayName: 'Install Node'
+    inputs:
+      versionSpec: '10.x'
+
+  - script: 'yarn install'
+    displayName: 'Install dependencies'
+
+  - script: './ci/win-build.cmd'
+    displayName: 'Build usb-notification'
+
+  - task: ArchiveFiles@2
+    displayName: 'Generate artifact'
+    inputs:
+      rootFolderOrFile: build\distribute\color-picker
+      includeRootFolder: true
+      archiveType: tar
+      tarCompression: gz
+      archiveFile: '$(DistributionAritfact)-win.tar.gz'
+
+  - task: CopyFiles@2
+    displayName: "Copy artifact to staging directory"
+    inputs:
+      sourceFolder: $(Build.SourcesDirectory)
+      contents: '*.tar.gz'
+      targetFolder: $(Build.ArtifactStagingDirectory)
+  
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish pipeline artifact'
+    inputs:
+      targetPath: '$(Build.ArtifactStagingDirectory)'
+      artifactName: win64
+
+- job: 'Deploy'
+  dependsOn:
+  - Windows64
+  - MacOS
+
+  condition: and(succeeded(), contains(variables['Build.SourceBranch'], 'tags'))
+
+  pool:
+    vmImage: 'ubuntu-16.04'
+
+  steps:
+  - task: DownloadBuildArtifacts@0
+    displayName: 'Download Windows artifact'
+    inputs:
+      buildType: 'current'
+      buildVersionToDownload: 'latestFromBranch'
+      artifactName: 'win64'
+      targetPath: $(Build.ArtifactStagingDirectory)/
+      downloadPath: '$(System.ArtifactsDirectory)'
+
+  - script: |
+      cd $(System.ArtifactsDirectory)
+      mkdir deploy
+      mv win64/* .
+    displayName: 'Move artifacts to parent directory'
+
+  - task: GithubRelease@0 
+    displayName: 'Deploy to GitHub'
+    inputs:
+      gitHubConnection: stream-labs_deploy
+      repositoryName: stream-labs/usb-notification
+      assets: $(System.ArtifactsDirectory)/*.tar.gz
+    
