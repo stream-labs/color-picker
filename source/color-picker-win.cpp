@@ -131,7 +131,7 @@ std::string ColorPicker::GetColorHex(COLORREF &ref) {
 
 /* NODE FUNCTIONS */
 
-NAN_METHOD(StartListening) {
+NAN_METHOD(StartColorPicker) {
     auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
     auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
 
@@ -139,7 +139,7 @@ NAN_METHOD(StartListening) {
 }
 
 NAN_MODULE_INIT(Init) {
-    Nan::Set(target, New<String>("startListening").ToLocalChecked(),GetFunction(New<FunctionTemplate>(StartListening)).ToLocalChecked());
+    Nan::Set(target, New<String>("startColorPicker").ToLocalChecked(),GetFunction(New<FunctionTemplate>(StartColorPicker)).ToLocalChecked());
     g_colorEvent = CreateEvent(nullptr, false, false, L"");
 }
 
