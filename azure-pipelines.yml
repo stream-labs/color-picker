@@ -44,7 +44,7 @@ jobs:
     displayName: 'Generate artifact'
     inputs:
       rootFolderOrFile: build\distribute\color-picker
-      includeRootFolder: true
+      includeRootFolder: false
       archiveType: tar
       tarCompression: gz
       archiveFile: '$(DistributionAritfact)-win.tar.gz'
@@ -62,35 +62,12 @@ jobs:
       targetPath: '$(Build.ArtifactStagingDirectory)'
       artifactName: win64
 
-- job: 'Deploy'
-  dependsOn:
-  - Windows64
-
-  condition: and(succeeded(), contains(variables['Build.SourceBranch'], 'tags'))
-
-  pool:
-    vmImage: 'ubuntu-16.04'
-
-  steps:
-  - task: DownloadBuildArtifacts@0
-    displayName: 'Download Windows artifact'
+  - task: S3Upload@1
     inputs:
-      buildType: 'current'
-      buildVersionToDownload: 'latestFromBranch'
-      artifactName: 'win64'
-      targetPath: $(Build.ArtifactStagingDirectory)/
-      downloadPath: '$(System.ArtifactsDirectory)'
-
-  - script: |
-      cd $(System.ArtifactsDirectory)
-      mkdir deploy
-      mv win64/* .
-    displayName: 'Move artifacts to parent directory'
-
-  - task: GithubRelease@0 
-    displayName: 'Deploy to GitHub'
-    inputs:
-      gitHubConnection: stream-labs_deploy
-      repositoryName: stream-labs/color-picker
-      assets: $(System.ArtifactsDirectory)/*.tar.gz
-    
+      awsCredentials: 'Streamlabs AWS'
+      regionName: 'us-west-2'
+      bucketName: 'obs-studio-deployment'
+      globExpressions: '$(DistributionAritfact)-win.tar.gz'
+      filesAcl: 'public-read'
+    displayName: 'Upload artifact to S3'
+    condition: and(succeeded(), contains(variables['Build.SourceBranch'], 'tags'))
