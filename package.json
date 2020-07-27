@@ -1,6 +1,6 @@
 {
-  "name": "node-usbspy",
-  "version": "1.0.0",
+  "name": "color-picker",
+  "version": "1.0.6",
   "main": "main.js",
   "devDependencies": {
     "es6-promise": "^4.2.8",
