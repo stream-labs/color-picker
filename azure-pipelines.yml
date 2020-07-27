@@ -12,7 +12,6 @@ variables:
   RuntimeURL: https://atom.io/download/atom-shell
   RuntimeName: iojs
   RuntimeVersion: v6.0.3
-  DistributionAritfact: $(RuntimeName)-$(RuntimeVersion)-color-picker
 
 jobs:
 - job: 'Windows64'
@@ -28,6 +27,9 @@ jobs:
 
   - checkout: self
     fetchDepth: 10
+
+  - powershell: 'Write-Host "##vso[task.setvariable variable=tagartifact]color-picker-$((git.exe describe --tags --abbrev=0) | Out-String)"'
+    displayName: 'Get tag for artifact'
 
   - task: NodeTool@0
     displayName: 'Install Node'
@@ -47,7 +49,7 @@ jobs:
       includeRootFolder: false
       archiveType: tar
       tarCompression: gz
-      archiveFile: '$(DistributionAritfact)-win.tar.gz'
+      archiveFile: '$(tagartifact)-win64.tar.gz'
 
   - task: CopyFiles@2
     displayName: "Copy artifact to staging directory"
@@ -62,12 +64,27 @@ jobs:
       targetPath: '$(Build.ArtifactStagingDirectory)'
       artifactName: win64
 
+  - task: DeleteFiles@1
+    inputs:
+      SourceFolder: build\distribute\color-picker
+      Contents: *.pdb
+
+  - task: ArchiveFiles@2
+    displayName: 'Generate artifact'
+    inputs:
+      rootFolderOrFile: build\distribute\color-picker
+      includeRootFolder: false
+      archiveType: tar
+      tarCompression: gz
+      archiveFile: '$(tagartifact)-win64.tar.gz'
+      replaceExistingArchive: true
+
   - task: S3Upload@1
     inputs:
       awsCredentials: 'Streamlabs AWS'
       regionName: 'us-west-2'
       bucketName: 'obs-studio-deployment'
-      globExpressions: '$(DistributionAritfact)-win.tar.gz'
+      globExpressions: '$(tagartifact)-win64.tar.gz'
       filesAcl: 'public-read'
     displayName: 'Upload artifact to S3'
     condition: and(succeeded(), contains(variables['Build.SourceBranch'], 'tags'))
