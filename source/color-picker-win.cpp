@@ -143,4 +143,4 @@ NAN_MODULE_INIT(Init) {
     g_colorEvent = CreateEvent(nullptr, false, false, L"");
 }
 
-NODE_MODULE(usbNotification, Init)
+NODE_MODULE(color_picker, Init)
