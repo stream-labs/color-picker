@@ -1,9 +1,13 @@
 {
   "name": "color-picker",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "main": "main.js",
   "devDependencies": {
     "es6-promise": "^4.2.8",
-    "nan": "^2.14.1"
+    "colors": "^1.4.0",
+    "fs": "^0.0.1-security",
+    "nan": "2.14.0",
+    "path": "^0.12.7",
+    "shelljs": "^0.8.4"
   }
 }
