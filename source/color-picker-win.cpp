@@ -16,38 +16,41 @@
 #include <sstream>
 #include <ios>
 #include <iomanip>
+#include <iostream>
 
 #define MOUSECLICK_EVENT "mouseClick"
 #define MOUSEMOVE_EVENT "mouseMove"
+#define FINISHED_EVENT "nonEvent"
 
 using namespace Nan;
 using namespace v8;
-
-bool g_exitWorker = false;
-HANDLE g_colorEvent;
-Color* g_colorInfo;
 
 ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event) :
         AsyncProgressQueueWorker(cb),
         m_getColorThread(),
         m_event(event)
 {
+    m_colorEvent = CreateEvent(nullptr, false, false, L"");
 }
 
 ColorPicker::~ColorPicker() {
-    if (m_getColorThread.joinable()) {
-        m_getColorThread.join();
-    }
-
+    CloseHandle(m_colorEvent);
     delete m_event;
 }
 
 void ColorPicker::Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) {
-    m_getColorThread = std::thread(&ColorPicker::GetPixelColorOnCursor);
+    m_getColorThread = std::thread(&ColorPicker::GetPixelColorOnCursor, this);
 
-    while (!g_exitWorker) {
-        WaitForSingleObject(g_colorEvent, INFINITE);
-        progress.Send(g_colorInfo, 1);
+    while (!exitWorker) {
+        WaitForSingleObject(m_colorEvent, INFINITE);
+
+        if (m_colorInfo.event.compare(FINISHED_EVENT) != 0) {
+            progress.Send(&m_colorInfo, 1);
+        } 
+    }
+    
+    if (m_getColorThread.joinable()) {
+        m_getColorThread.join();
     }
 }
 
@@ -59,10 +62,6 @@ void ColorPicker::HandleProgressCallback(const Color* data, size_t size) {
     Nan::Set(eventInfo, Nan::New("hex").ToLocalChecked(), New<v8::String>(data->hex.c_str()).ToLocalChecked());
     v8::Local<v8::Value> argv[] = {eventInfo};
 
-    if (data->event == "mouseClick") {
-        g_exitWorker = true;
-    }
-
     AsyncResource resource("color-picker:Event");
     m_event->Call(1, argv, &resource);
 }
@@ -71,46 +70,44 @@ void ColorPicker::GetPixelColorOnCursor() {
     POINT cursorPos;
     COLORREF colorRef;
     HDC screenDC;
-    BOOL result;
-    bool exit = false;
     int swappedMouseButton = GetSystemMetrics(SM_SWAPBUTTON);
 
-    while (!exit) {
+    while (true) {
+        colorRef = CLR_INVALID;
+        m_colorInfo.event = FINISHED_EVENT;
+
         screenDC = GetDC(nullptr);
         if (screenDC == nullptr) {
-            continue;
+            break;
         }
 
-        result = GetCursorPos(&cursorPos);
-        if (!result) {
-            ReleaseDC(GetDesktopWindow(), screenDC);
-            continue;
+        if (GetCursorPos(&cursorPos)) {
+            colorRef = GetPixel(screenDC, cursorPos.x, cursorPos.y);
         }
-
-        colorRef = GetPixel(screenDC, cursorPos.x, cursorPos.y);
-        if (colorRef == CLR_INVALID) {
-            ReleaseDC(GetDesktopWindow(), screenDC);
-            continue;
-        }
-
         ReleaseDC(GetDesktopWindow(), screenDC);
 
-        auto* colorInfo = new Color;
-        colorInfo->hex = GetColorHex(colorRef);
+        if (colorRef == CLR_INVALID) {
+            break;
+        }
+
+        Color colorInfo;
+        colorInfo.hex = GetColorHex(colorRef);
 
         if ((swappedMouseButton == 0 && GetAsyncKeyState(VK_LBUTTON) & 0x8000) ||
             (swappedMouseButton != 0 && GetAsyncKeyState(VK_RBUTTON) & 0x8000)) {
-            colorInfo->event = MOUSECLICK_EVENT;
-            g_colorInfo = colorInfo;
-            SetEvent(g_colorEvent);
-            exit = true;
+            colorInfo.event = MOUSECLICK_EVENT;
+            m_colorInfo = colorInfo;
+            break;
         } else {
-            colorInfo->event = MOUSEMOVE_EVENT;
-            g_colorInfo = colorInfo;
-            SetEvent(g_colorEvent);
+            colorInfo.event = MOUSEMOVE_EVENT;
+            m_colorInfo = colorInfo;
+            SetEvent(m_colorEvent);
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
+
+    exitWorker = true;
+    SetEvent(m_colorEvent);
 }
 
 std::string ColorPicker::GetColorHex(COLORREF &ref) {
@@ -140,7 +137,6 @@ NAN_METHOD(StartColorPicker) {
 
 NAN_MODULE_INIT(Init) {
     Nan::Set(target, New<String>("startColorPicker").ToLocalChecked(),GetFunction(New<FunctionTemplate>(StartColorPicker)).ToLocalChecked());
-    g_colorEvent = CreateEvent(nullptr, false, false, L"");
 }
 
 NODE_MODULE(color_picker, Init)

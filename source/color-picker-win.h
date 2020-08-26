@@ -32,9 +32,13 @@ public:
     void HandleProgressCallback(const Color* data, size_t size) override;
 
 private:
-    static void GetPixelColorOnCursor();
+    void GetPixelColorOnCursor();
     static std::string GetColorHex(COLORREF &ref);
 
     std::thread m_getColorThread;
     Nan::Callback* m_event;
+    
+    Color m_colorInfo;
+    HANDLE m_colorEvent = NULL;
+    bool exitWorker = false;
 };
