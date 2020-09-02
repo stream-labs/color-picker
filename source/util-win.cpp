@@ -15,20 +15,20 @@
 #include "util-win.h"
 
 #if _MSC_VER >= 1300
-  #ifndef _delayimp_h
-  extern "C" IMAGE_DOS_HEADER __ImageBase;
-  #endif
+#ifndef _delayimp_h
+extern "C" IMAGE_DOS_HEADER __ImageBase;
 #endif
- 
+#endif
+
 HMODULE GetCurrentModule()
 {
 #if _MSC_VER < 1300    
-  MEMORY_BASIC_INFORMATION mbi;
-  static int dummy;
-  VirtualQuery( &dummy, &mbi, sizeof(mbi) );
+	MEMORY_BASIC_INFORMATION mbi;
+	static int dummy;
+	VirtualQuery(&dummy, &mbi, sizeof(mbi));
 
-  return reinterpret_cast<HMODULE>(mbi.AllocationBase);
+	return reinterpret_cast<HMODULE>(mbi.AllocationBase);
 #else  
-  return reinterpret_cast<HMODULE>(&__ImageBase);
+	return reinterpret_cast<HMODULE>(&__ImageBase);
 #endif
 }

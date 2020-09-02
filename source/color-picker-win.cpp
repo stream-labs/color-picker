@@ -29,251 +29,336 @@ const DWORD IDT_TIMER_OVER_WINDOW = 1001;
 const DWORD ID_PICKER_CURSOR = 1010;
 bool ColorPicker::busy = false;
 
+int ColorWindowWidth = 75;
+int ColorWindowHeight = 45;
+
 using namespace Nan;
 using namespace v8;
 
 ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event) :
-        AsyncProgressQueueWorker(cb),
-        m_getColorThread(),
-        m_event(event)
+	AsyncProgressQueueWorker(cb),
+	pickingColorThread(),
+	m_event(event)
 {
-    busy = true;
-    m_colorEvent = CreateEvent(nullptr, false, false, L"");
+	busy = true;
+	colorPickedEvent = CreateEvent(nullptr, false, false, L"");
 }
 
-ColorPicker::~ColorPicker() {
-    CloseHandle(m_colorEvent);
-    delete m_event;
-    busy = false;
-}
-
-void ColorPicker::Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) {
-    m_getColorThread = std::thread(&ColorPicker::GetPixelColorOnCursor, this);
-
-    while (!exitWorker) {
-        WaitForSingleObject(m_colorEvent, INFINITE);
-
-        if (m_colorInfo.event.compare(FINISHED_EVENT) != 0) {
-            progress.Send(&m_colorInfo, 1);
-        } 
-    }
-    
-    if (m_getColorThread.joinable()) {
-        m_getColorThread.join();
-    }
-}
-
-void ColorPicker::HandleProgressCallback(const Color* data, size_t size) {
-    Nan::HandleScope scope;
-
-    v8::Local<v8::Object> eventInfo = Nan::New<v8::Object>();
-    Nan::Set(eventInfo, Nan::New("event").ToLocalChecked(), New<v8::String>(data->event.c_str()).ToLocalChecked());
-    Nan::Set(eventInfo, Nan::New("hex").ToLocalChecked(), New<v8::String>(data->hex.c_str()).ToLocalChecked());
-    v8::Local<v8::Value> argv[] = {eventInfo};
-
-    AsyncResource resource("color-picker:Event");
-    m_event->Call(1, argv, &resource);
-}
-
-void ColorPicker::GetPixelColorOnCursor() 
+ColorPicker::~ColorPicker()
 {
-    hInst = GetModuleHandle(NULL);
-
-    hPickCursor = LoadCursor( GetCurrentModule(), MAKEINTRESOURCE( ID_PICKER_CURSOR ) );
-
-	WNDCLASSEX wc = { 0 };
-	wc.cbSize = sizeof(wc);
-	wc.style = 0;
-	wc.lpfnWndProc = ColorPicker::WndProc;
-	wc.cbClsExtra = 0;
-	wc.cbWndExtra = 0;
-	wc.hInstance = hInst;
-	wc.hCursor = hPickCursor;
-	wc.lpszClassName = L"picker_win_cls";
-	wc.hbrBackground = NULL;
-
-	if (RegisterClassEx(&wc)) {
-        std::cout << "created picker_win_cls class "  << std::endl;
-        pick_mask_window = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT, L"picker_win_cls", L"", WS_POPUP, 0, 0, 0, 0, NULL, NULL, hInst, this);
-        if (pick_mask_window) {
-            std::cout << "created picker window"  << std::endl;
-            UpdateWindow(pick_mask_window);
-            ShowWindow(pick_mask_window, SW_SHOW);
-            
-            SetTimer(pick_mask_window, IDT_TIMER_OVER_WINDOW, 100, (TIMERPROC) NULL);
-
-            MSG msg;
-            while (GetMessage(&msg, pick_mask_window, 0, 0) > 0) {
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-            std::cout << "exit message loop " << std::endl;    
-            KillTimer(pick_mask_window, IDT_TIMER_OVER_WINDOW);
-            DestroyWindow(pick_mask_window);
-        }
-        UnregisterClass(L"picker_win_cls", hInst);
-	} else {
-        std::cout << "failed to create class "  << GetLastError()<< std::endl;
-    }
-    
-    UnregisterClass(L"picker_win_cls", hInst);
-    DestroyCursor(hPickCursor);
-
-    m_colorInfo.event = FINISHED_EVENT;
-    exitWorker = true;
-    SetEvent(m_colorEvent);
+	CloseHandle(colorPickedEvent);
+	delete m_event;
+	busy = false;
 }
 
-LRESULT CALLBACK ColorPicker::WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+void ColorPicker::Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress)
 {
-    switch (message) 
-    {
-		case WM_NCCREATE:
-		{
-			CREATESTRUCT*  cs = (CREATESTRUCT*)lParam;
-			ColorPicker* colorPicker = (ColorPicker*)(cs->lpCreateParams);
-			colorPicker->pick_mask_window = hWnd;
-			::SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)colorPicker);
-			return colorPicker->ColorWndProc(hWnd, message, wParam, lParam);
-		}
-		default:
-		{
-			ColorPicker* colorPicker = reinterpret_cast<ColorPicker*>(::GetWindowLongPtr(hWnd, GWLP_USERDATA));
-			if (!colorPicker)
-				return FALSE;
-			return colorPicker->ColorWndProc(hWnd, message, wParam, lParam);
+	pickingColorThread = std::thread(&ColorPicker::GetPixelColorOnCursor, this);
+
+	while (!exitWorker) {
+		WaitForSingleObject(colorPickedEvent, INFINITE);
+
+		if (colorPickedInfo.event.compare(FINISHED_EVENT) != 0) {
+			progress.Send(&colorPickedInfo, 1);
 		}
 	}
+
+	if (pickingColorThread.joinable()) {
+		pickingColorThread.join();
+	}
+}
+
+void ColorPicker::HandleProgressCallback(const ColorInfo* data, size_t size)
+{
+	Nan::HandleScope scope;
+
+	v8::Local<v8::Object> eventInfo = Nan::New<v8::Object>();
+	Nan::Set(eventInfo, Nan::New("event").ToLocalChecked(), New<v8::String>(data->event.c_str()).ToLocalChecked());
+	Nan::Set(eventInfo, Nan::New("hex").ToLocalChecked(), New<v8::String>(data->hex.c_str()).ToLocalChecked());
+	v8::Local<v8::Value> argv[] = { eventInfo };
+
+	AsyncResource resource("color-picker:Event");
+	m_event->Call(1, argv, &resource);
+}
+
+void ColorPicker::GetPixelColorOnCursor()
+{
+	hInst = GetModuleHandle(NULL);
+
+	pickerCursor = LoadCursor(GetCurrentModule(), MAKEINTRESOURCE(ID_PICKER_CURSOR));
+
+	WNDCLASSEX wcm = { 0 };
+	wcm.cbSize = sizeof(wcm);
+	wcm.style = 0;
+	wcm.lpfnWndProc = ColorPicker::MaskWndProc;
+	wcm.cbClsExtra = 0;
+	wcm.cbWndExtra = 0;
+	wcm.hInstance = hInst;
+	wcm.hCursor = pickerCursor;
+	wcm.lpszClassName = L"picker_mask_win_cls";
+	wcm.hbrBackground = NULL;
+	UnregisterClass(L"picker_mask_win_cls", hInst);
+
+	WNDCLASSEX wcc = { 0 };
+	wcc.cbSize = sizeof(wcm);
+	wcc.style = CS_HREDRAW | CS_VREDRAW;
+	wcc.lpfnWndProc = ColorPicker::ColorWndProc;
+	wcc.cbClsExtra = 0;
+	wcc.cbWndExtra = 0;
+	wcc.hInstance = hInst;
+	wcc.hCursor = pickerCursor;
+	wcc.lpszClassName = L"picker_color_win_cls";
+	wcc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	UnregisterClass(L"picker_color_win_cls", hInst);
+
+	if (RegisterClassEx(&wcm)) {
+		pickerMaskWindow = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_TRANSPARENT, L"picker_mask_win_cls", L"", WS_POPUP, 0, 0, 0, 0, NULL, NULL, hInst, this);
+		if (pickerMaskWindow) {
+			UpdateWindow(pickerMaskWindow);
+			ShowWindow(pickerMaskWindow, SW_SHOW);
+
+			SetTimer(pickerMaskWindow, IDT_TIMER_OVER_WINDOW, 100, (TIMERPROC)NULL);
+
+			RegisterClassEx(&wcc);
+			pickerColorWindow = CreateWindowEx(WS_EX_WINDOWEDGE | WS_EX_TOPMOST, L"picker_color_win_cls", L"", WS_POPUP | WS_BORDER, 0, 0, ColorWindowWidth, ColorWindowHeight, NULL, NULL, hInst, this);
+			UpdateWindow(pickerColorWindow);
+
+			MSG msg;
+			while (GetMessage(&msg, 0, 0, 0) > 0) {
+				TranslateMessage(&msg);
+				DispatchMessage(&msg);
+			}
+
+			KillTimer(pickerMaskWindow, IDT_TIMER_OVER_WINDOW);
+			DestroyWindow(pickerMaskWindow);
+			DestroyWindow(pickerColorWindow);
+		}
+		UnregisterClass(L"picker_mask_win_cls", hInst);
+	}
+
+	DestroyCursor(pickerCursor);
+
+	colorPickedInfo.event = FINISHED_EVENT;
+	exitWorker = true;
+	SetEvent(colorPickedEvent);
+}
+
+LRESULT CALLBACK ColorPicker::MaskWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+	case WM_NCCREATE:
+	{
+		CREATESTRUCT* cs = (CREATESTRUCT*)lParam;
+		ColorPicker* colorPicker = (ColorPicker*)(cs->lpCreateParams);
+		colorPicker->pickerMaskWindow = hWnd;
+		::SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)colorPicker);
+		return colorPicker->MaksWndHandler(hWnd, message, wParam, lParam);
+	}
+	default:
+	{
+		ColorPicker* colorPicker = reinterpret_cast<ColorPicker*>(::GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		if (!colorPicker)
+			return FALSE;
+		return colorPicker->MaksWndHandler(hWnd, message, wParam, lParam);
+	}
+	}
+}
+
+LRESULT CALLBACK ColorPicker::MaksWndHandler(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+	case WM_SETCURSOR:
+		SetCursor(pickerCursor);
+		break;
+	case WM_TIMER:
+		if (wParam == IDT_TIMER_OVER_WINDOW)
+		{
+			HDC screenDC;
+			GetCursorPos(&lastPoint);
+
+			screenDC = GetDC(nullptr);
+			if (screenDC != nullptr) {
+				COLORREF colorRef = CLR_INVALID;
+				colorRef = GetPixel(screenDC, lastPoint.x, lastPoint.y);
+				ReleaseDC(GetDesktopWindow(), screenDC);
+
+				if (colorRef != CLR_INVALID) {
+					ColorInfo colorInfo;
+					colorInfo.hex = GetColorHex(colorRef);
+					colorInfo.color = colorRef;
+					colorInfo.event = MOUSEMOVE_EVENT;
+					colorPickedInfo = colorInfo;
+					SetEvent(colorPickedEvent);
+				}
+
+			}
+
+			HWND under_coursor = WindowFromPoint(lastPoint);
+			if (under_coursor != pickerMaskWindow) {
+				HMONITOR monitor = MonitorFromPoint(lastPoint, MONITOR_DEFAULTTONULL);
+				if (monitor) {
+					MONITORINFO mi;
+					mi.cbSize = sizeof(MONITORINFO);
+					::GetMonitorInfo(monitor, (LPMONITORINFO)&mi);
+					int width = mi.rcMonitor.right - mi.rcMonitor.left;
+					int height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+
+					::SetWindowPos(pickerMaskWindow, HWND_TOPMOST, mi.rcMonitor.left, mi.rcMonitor.top, width, height, SWP_SHOWWINDOW);
+				}
+			}
+			HDC winDC = GetDC(pickerColorWindow);
+			if (winDC)
+			{
+				RECT rc = {0};
+				rc.right = 1000;
+				rc.bottom = 1000;
+				DrawText(winDC, L"0xFFFFFFFF", -1, &rc, DT_CALCRECT);
+				ColorWindowWidth = rc.right + 10;
+				ColorWindowHeight = rc.bottom + 27;
+
+				ReleaseDC(pickerColorWindow, winDC);
+			}
+
+			SetWindowPos(pickerColorWindow, 0, lastPoint.x + 5, lastPoint.y + 5, ColorWindowWidth, ColorWindowHeight, SWP_SHOWWINDOW);
+			RedrawWindow(pickerColorWindow, 0, 0, RDW_INVALIDATE);
+		}
+		break;
+	case WM_LBUTTONUP:
+		colorPickedInfo.event = MOUSECLICK_EVENT;
+		SetEvent(colorPickedEvent);
+		DestroyWindow(pickerMaskWindow);
+		break;
+	case WM_RBUTTONUP:
+		colorPickedInfo.event = MOUSECLICK_EVENT;
+		SetEvent(colorPickedEvent);
+		DestroyWindow(pickerMaskWindow);
+		break;
+	case WM_KEYDOWN:
+		if (wParam == VK_ESCAPE)
+		{
+			DestroyWindow(pickerMaskWindow);
+		}
+		break;
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+	default:
+		break;
+	}
+
+	return DefWindowProc(hWnd, message, wParam, lParam);
 }
 
 LRESULT CALLBACK ColorPicker::ColorWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	switch (message) 
+	switch (message)
 	{
-	case WM_SETCURSOR:
+	case WM_NCCREATE:
 	{
-		SetCursor(hPickCursor);
-        return 0;
+		CREATESTRUCT* cs = (CREATESTRUCT*)lParam;
+		ColorPicker* colorPicker = (ColorPicker*)(cs->lpCreateParams);
+		colorPicker->pickerColorWindow = hWnd;
+		::SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)colorPicker);
+		return colorPicker->ColorWndHandler(hWnd, message, wParam, lParam);
 	}
-	case WM_MOUSEMOVE:
-	{
-        break;
-	}
-	case WM_PAINT:
-	{
-
-        break;
-    }
-    case WM_TIMER: 
-    
-    if (wParam == IDT_TIMER_OVER_WINDOW) 
-    { 
-        POINT cursorPos;
-        COLORREF colorRef;
-        HDC screenDC;
-
-        colorRef = CLR_INVALID;
-
-        screenDC = GetDC(nullptr);
-        if (screenDC != nullptr) {
-            if (GetCursorPos(&cursorPos)) {
-                colorRef = GetPixel(screenDC, cursorPos.x, cursorPos.y);
-            }
-            ReleaseDC(GetDesktopWindow(), screenDC);
-
-            if (colorRef != CLR_INVALID) {
-                Color colorInfo;
-                colorInfo.hex = GetColorHex(colorRef);
-                colorInfo.color = colorRef;
-                colorInfo.event = MOUSEMOVE_EVENT;
-                m_colorInfo = colorInfo;
-                SetEvent(m_colorEvent);
-            }
-        }
-
-        POINT p;
-        GetCursorPos(&p);
-
-        HWND under_coursor = WindowFromPoint(p);
-        if( under_coursor != pick_mask_window) {
-            HMONITOR monitor = MonitorFromPoint(p, MONITOR_DEFAULTTONULL);
-            if(monitor) {
-                MONITORINFO mi;
-                mi.cbSize = sizeof(MONITORINFO);
-                ::GetMonitorInfo(monitor, (LPMONITORINFO)&mi);
-                int width = mi.rcMonitor.right - mi.rcMonitor.left;
-                int height = mi.rcMonitor.bottom - mi.rcMonitor.top;
-
-                ::SetWindowPos(pick_mask_window, HWND_TOPMOST, mi.rcMonitor.left, mi.rcMonitor.top, width, height, SWP_SHOWWINDOW);
-            }
-        }
-    }
-    break;
-	case WM_LBUTTONUP:
-        std::cout << "left button up " << std::endl;
-        m_colorInfo.event = MOUSECLICK_EVENT;
-        SetEvent(m_colorEvent);
-        DestroyWindow(pick_mask_window);
-		break;
-	case WM_RBUTTONUP:
-        std::cout << "right button up " << std::endl;
-        m_colorInfo.event = MOUSECLICK_EVENT;
-        SetEvent(m_colorEvent);
-        DestroyWindow(pick_mask_window);
-		break;
-	case WM_CLOSE:
-        std::cout << "WM_CLOSE recieved " << std::endl;
-        break;
-    case WM_SYSCOMMAND:
-        std::cout << "WM_SYSCOMMAND recieved " << std::endl;
-        if (SC_CLOSE == wParam)
-        {
-            //PostQuitMessage(0);
-        }
-        break;
-    case WM_DESTROY:
-        std::cout << "WM_DESTROY recieved " << std::endl;
-        PostQuitMessage(0);
-        break;
 	default:
-        break;
+	{
+		ColorPicker* colorPicker = reinterpret_cast<ColorPicker*>(::GetWindowLongPtr(hWnd, GWLP_USERDATA));
+		if (!colorPicker)
+			return FALSE;
+		return colorPicker->ColorWndHandler(hWnd, message, wParam, lParam);
 	}
-
-    return DefWindowProc(hWnd, message, wParam, lParam);
+	}
 }
 
-std::string ColorPicker::GetColorHex(COLORREF &ref) {
-    std::stringstream redHex;
-    redHex << std::setfill('0') << std::setw(2) << std::right << std::hex << static_cast<int>(GetRValue(ref));
+LRESULT CALLBACK ColorPicker::ColorWndHandler(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	switch (message)
+	{
+	case WM_PAINT:
+	{
+		HDC hdc_win = ::GetDC(pickerColorWindow);
+		if (hdc_win) {
+			RECT rc;
+			HBRUSH brush;
 
-    std::stringstream greenHex;
-    greenHex << std::setfill('0') << std::setw(2) << std::right << std::hex << static_cast<int>(GetGValue(ref));
 
-    std::stringstream blueHex;
-    blueHex << std::setfill('0') << std::setw(2) << std::right << std::hex << static_cast<int>(GetBValue(ref));
+			rc.left = 2;
+			rc.top  = 2;
+			rc.right = ColorWindowWidth - 4;
+			rc.bottom = rc.top + 22;
+			brush = ::CreateSolidBrush(0);
+			::FrameRect(hdc_win, &rc, brush);
+			::DeleteObject(brush);
 
-    std::stringstream colorHex;
-    colorHex << redHex.str() << greenHex.str() << blueHex.str();
+			rc.left = 3;
+			rc.top  = 3;
+			rc.right = ColorWindowWidth - 5;
+			rc.bottom = rc.top + 20;
+			brush = ::CreateSolidBrush(colorPickedInfo.color);
+			::FillRect(hdc_win, &rc, brush);
+			::DeleteObject(brush);
 
-    return colorHex.str();
+			rc.left = 0;
+			rc.top  = 24;
+			rc.right = ColorWindowWidth;
+			rc.bottom = ColorWindowHeight;
+
+			char buffer[32];
+			snprintf(buffer, sizeof(buffer), "0x%08X ", colorPickedInfo.color);
+			size_t len = strlen(buffer);
+			WCHAR unistring[32];
+			int result = MultiByteToWideChar(CP_OEMCP, 0, buffer, -1, unistring, len + 1);
+			DrawText(hdc_win, (LPWSTR)unistring, -1, &rc, DT_CENTER | DT_BOTTOM);
+
+			::ReleaseDC(pickerColorWindow, hdc_win);
+		}
+	}
+	break;
+	default:
+		break;
+	}
+
+	return DefWindowProc(hWnd, message, wParam, lParam);
+}
+std::string ColorPicker::GetColorHex(COLORREF& ref)
+{
+	std::stringstream redHex;
+	redHex << std::setfill('0') << std::setw(2) << std::right << std::hex << static_cast<int>(GetRValue(ref));
+
+	std::stringstream greenHex;
+	greenHex << std::setfill('0') << std::setw(2) << std::right << std::hex << static_cast<int>(GetGValue(ref));
+
+	std::stringstream blueHex;
+	blueHex << std::setfill('0') << std::setw(2) << std::right << std::hex << static_cast<int>(GetBValue(ref));
+
+	std::stringstream colorHex;
+	colorHex << redHex.str() << greenHex.str() << blueHex.str();
+
+	return colorHex.str();
 }
 
 /* NODE FUNCTIONS */
 
-NAN_METHOD(StartColorPicker) {
-    if(ColorPicker::IsBusy())
-    {
+NAN_METHOD(StartColorPicker)
+{
+	if (ColorPicker::IsBusy())
+	{
 
-    } else {
-        auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
-        auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
+	}
+	else {
+		auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
+		auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
 
-        AsyncQueueWorker(new ColorPicker(callback, progress));
-    }
+		AsyncQueueWorker(new ColorPicker(callback, progress));
+	}
 }
 
-NAN_MODULE_INIT(Init) {
-    Nan::Set(target, New<String>("startColorPicker").ToLocalChecked(),GetFunction(New<FunctionTemplate>(StartColorPicker)).ToLocalChecked());
+NAN_MODULE_INIT(Init)
+{
+	Nan::Set(target, New<String>("startColorPicker").ToLocalChecked(), GetFunction(New<FunctionTemplate>(StartColorPicker)).ToLocalChecked());
 }
 
 NODE_MODULE(color_picker, Init)
