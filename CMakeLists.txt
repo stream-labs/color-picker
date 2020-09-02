@@ -24,6 +24,9 @@ if(WIN32)
 		PROJECT_SOURCE 
 		"${PROJECT_SOURCE_DIR}/source/color-picker-win.cpp" 
 		"${PROJECT_SOURCE_DIR}/source/color-picker-win.h"
+		"${PROJECT_SOURCE_DIR}/source/util-win.cpp" 
+		"${PROJECT_SOURCE_DIR}/source/util-win.h"
+		"${PROJECT_SOURCE_DIR}/res/resource.rc"
 	)
 endif()
 
@@ -60,14 +63,14 @@ target_compile_definitions(
 
 set(
 	CompilerFlags
-    CMAKE_CXX_FLAGS
-    CMAKE_CXX_FLAGS_DEBUG
-    CMAKE_CXX_FLAGS_RELEASE
-	CMAKE_CXX_FLAGS_RELWITHDEBINFO
-    CMAKE_C_FLAGS
-    CMAKE_C_FLAGS_DEBUG
-    CMAKE_C_FLAGS_RELEASE
-	CMAKE_C_FLAGS_RELWITHDEBINFO
+		CMAKE_CXX_FLAGS
+		CMAKE_CXX_FLAGS_DEBUG
+		CMAKE_CXX_FLAGS_RELEASE
+		CMAKE_CXX_FLAGS_RELWITHDEBINFO
+		CMAKE_C_FLAGS
+		CMAKE_C_FLAGS_DEBUG
+		CMAKE_C_FLAGS_RELEASE
+		CMAKE_C_FLAGS_RELWITHDEBINFO
 )
 
 foreach(CompilerFlag ${CompilerFlags})

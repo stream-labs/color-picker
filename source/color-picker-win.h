@@ -11,6 +11,7 @@
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
+#pragma once
 
 #include <nan.h>
 #include <functional>
@@ -21,6 +22,7 @@
 struct Color {
     std::string event;
     std::string hex;
+    COLORREF color;
 };
 
 class ColorPicker : public Nan::AsyncProgressQueueWorker<Color> {
@@ -31,7 +33,9 @@ public:
     void Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) override;
     void HandleProgressCallback(const Color* data, size_t size) override;
 
+    static bool IsBusy() {return busy;};
 private:
+    static bool busy;
     void GetPixelColorOnCursor();
     static std::string GetColorHex(COLORREF &ref);
 

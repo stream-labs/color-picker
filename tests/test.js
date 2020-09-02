@@ -15,5 +15,10 @@ startPicking();
 
 setTimeout(function() {
     console.log("timeout worked");
-    //startPicking();
-}, 10000);    
+    startPicking();
+}, 3000);    
+
+setTimeout(function() {
+    console.log("timeout worked");
+    startPicking();
+}, 13000);    

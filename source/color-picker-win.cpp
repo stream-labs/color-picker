@@ -13,6 +13,8 @@
 ******************************************************************************/
 
 #include "color-picker-win.h"
+#include "util-win.h"
+
 #include <sstream>
 #include <ios>
 #include <iomanip>
@@ -24,6 +26,8 @@
 
 HINSTANCE hInst = NULL;
 const DWORD IDT_TIMER_OVER_WINDOW = 1001;
+const DWORD ID_PICKER_CURSOR = 1010;
+bool ColorPicker::busy = false;
 
 using namespace Nan;
 using namespace v8;
@@ -33,12 +37,14 @@ ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event) :
         m_getColorThread(),
         m_event(event)
 {
+    busy = true;
     m_colorEvent = CreateEvent(nullptr, false, false, L"");
 }
 
 ColorPicker::~ColorPicker() {
     CloseHandle(m_colorEvent);
     delete m_event;
+    busy = false;
 }
 
 void ColorPicker::Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) {
@@ -73,7 +79,8 @@ void ColorPicker::GetPixelColorOnCursor()
 {
     hInst = GetModuleHandle(NULL);
 
-//todo load coursor 
+    hPickCursor = LoadCursor( GetCurrentModule(), MAKEINTRESOURCE( ID_PICKER_CURSOR ) );
+
 	WNDCLASSEX wc = { 0 };
 	wc.cbSize = sizeof(wc);
 	wc.style = 0;
@@ -96,7 +103,7 @@ void ColorPicker::GetPixelColorOnCursor()
             SetTimer(pick_mask_window, IDT_TIMER_OVER_WINDOW, 100, (TIMERPROC) NULL);
 
             MSG msg;
-            while (GetMessage(&msg, pick_mask_window, 0, 0)) {
+            while (GetMessage(&msg, pick_mask_window, 0, 0) > 0) {
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);
             }
@@ -110,7 +117,8 @@ void ColorPicker::GetPixelColorOnCursor()
     }
     
     UnregisterClass(L"picker_win_cls", hInst);
-    
+    DestroyCursor(hPickCursor);
+
     m_colorInfo.event = FINISHED_EVENT;
     exitWorker = true;
     SetEvent(m_colorEvent);
@@ -144,13 +152,18 @@ LRESULT CALLBACK ColorPicker::ColorWndProc(HWND hWnd, UINT message, WPARAM wPara
 	{
 	case WM_SETCURSOR:
 	{
-		//SetCursor(hPickCursor);
+		SetCursor(hPickCursor);
         return 0;
 	}
 	case WM_MOUSEMOVE:
 	{
-        return 0;
+        break;
 	}
+	case WM_PAINT:
+	{
+
+        break;
+    }
     case WM_TIMER: 
     
     if (wParam == IDT_TIMER_OVER_WINDOW) 
@@ -171,12 +184,12 @@ LRESULT CALLBACK ColorPicker::ColorWndProc(HWND hWnd, UINT message, WPARAM wPara
             if (colorRef != CLR_INVALID) {
                 Color colorInfo;
                 colorInfo.hex = GetColorHex(colorRef);
+                colorInfo.color = colorRef;
                 colorInfo.event = MOUSEMOVE_EVENT;
                 m_colorInfo = colorInfo;
                 SetEvent(m_colorEvent);
             }
         }
-
 
         POINT p;
         GetCursorPos(&p);
@@ -195,17 +208,19 @@ LRESULT CALLBACK ColorPicker::ColorWndProc(HWND hWnd, UINT message, WPARAM wPara
             }
         }
     }
-    return 0;
+    break;
 	case WM_LBUTTONUP:
         std::cout << "left button up " << std::endl;
         m_colorInfo.event = MOUSECLICK_EVENT;
         SetEvent(m_colorEvent);
-		return 0;
+        DestroyWindow(pick_mask_window);
+		break;
 	case WM_RBUTTONUP:
         std::cout << "right button up " << std::endl;
-        PostQuitMessage(0);
-        CloseWindow(pick_mask_window);
-		return 0;
+        m_colorInfo.event = MOUSECLICK_EVENT;
+        SetEvent(m_colorEvent);
+        DestroyWindow(pick_mask_window);
+		break;
 	case WM_CLOSE:
         std::cout << "WM_CLOSE recieved " << std::endl;
         break;
@@ -213,7 +228,7 @@ LRESULT CALLBACK ColorPicker::ColorWndProc(HWND hWnd, UINT message, WPARAM wPara
         std::cout << "WM_SYSCOMMAND recieved " << std::endl;
         if (SC_CLOSE == wParam)
         {
-            PostQuitMessage(0);
+            //PostQuitMessage(0);
         }
         break;
     case WM_DESTROY:
@@ -246,10 +261,15 @@ std::string ColorPicker::GetColorHex(COLORREF &ref) {
 /* NODE FUNCTIONS */
 
 NAN_METHOD(StartColorPicker) {
-    auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
-    auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
+    if(ColorPicker::IsBusy())
+    {
 
-    AsyncQueueWorker(new ColorPicker(callback, progress));
+    } else {
+        auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
+        auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
+
+        AsyncQueueWorker(new ColorPicker(callback, progress));
+    }
 }
 
 NAN_MODULE_INIT(Init) {
