@@ -41,4 +41,9 @@ private:
     Color m_colorInfo;
     HANDLE m_colorEvent = NULL;
     bool exitWorker = false;
+
+    HCURSOR hPickCursor;
+    HWND pick_mask_window;    
+    static LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+    LRESULT CALLBACK ColorWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 };
