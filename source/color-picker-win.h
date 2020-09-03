@@ -51,8 +51,14 @@ private:
 	HWND pickerMaskWindow;
 	static LRESULT CALLBACK MaskWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK MaksWndHandler(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+	void HandleCursorPosition();
+	void PickColor();
+	void PositionColorWindow();
+	void PositionMaskWindow();
 	
 	HWND pickerColorWindow;
 	static LRESULT CALLBACK ColorWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK ColorWndHandler(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	void DrawColorWnd();
 };
