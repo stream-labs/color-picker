@@ -39,8 +39,8 @@ private:
 	void GetPixelColorOnCursor();
 	static std::string GetColorHex(COLORREF& ref);
 
-    bool moveCallbacks;
-    bool colorWindow;
+    bool sendMoveCallbacks;
+    bool showColorWindow;
 
 	std::thread pickingColorThread;
 	Nan::Callback* m_event;

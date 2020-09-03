@@ -35,12 +35,12 @@ int ColorWindowHeight = 45;
 using namespace Nan;
 using namespace v8;
 
-ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindow, bool sendMoveCallbacks) :
+ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindowFlag, bool sendMoveCallbacksFlag) :
 	AsyncProgressQueueWorker(cb),
 	pickingColorThread(),
 	m_event(event),
-    colorWindow(showColorWindow),
-    moveCallbacks(sendMoveCallbacks)
+    showColorWindow(showColorWindowFlag),
+    sendMoveCallbacks(sendMoveCallbacksFlag)
 {
 	busy = true;
 	colorPickedEvent = CreateEvent(nullptr, false, false, L"");
@@ -235,7 +235,7 @@ void ColorPicker::PickColor()
 			colorInfo.event = MOUSEMOVE_EVENT;
 			colorPickedInfo = colorInfo;
             
-            if(moveCallbacks)
+            if(sendMoveCallbacks)
 			    SetEvent(colorPickedEvent);
             
             RedrawWindow(pickerColorWindow, 0, 0, RDW_INVALIDATE);
@@ -259,7 +259,7 @@ void ColorPicker::PositionColorWindow()
 		ReleaseDC(pickerColorWindow, winDC);
 	}
     
-    if(colorWindow)
+    if(showColorWindow)
     {
 	    SetWindowPos(pickerColorWindow, 0, lastPoint.x + 5, lastPoint.y + 5, ColorWindowWidth, ColorWindowHeight, SWP_SHOWWINDOW);
 	    RedrawWindow(pickerColorWindow, 0, 0, RDW_INVALIDATE);
@@ -387,18 +387,18 @@ NAN_METHOD(StartColorPicker)
 
 	}
 	else {
-		bool showColorWindow = true;
-		bool sendMoveCallbacks = false;
+		bool showColorWindowFlag = true;
+		bool sendMoveCallbacksFlag = false;
 
 		auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
 		auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
         if(info.Length() == 4)
         {
-		    showColorWindow = info[2]->BooleanValue();
-		    sendMoveCallbacks = info[3]->BooleanValue();
+		    showColorWindowFlag = info[2]->BooleanValue();
+		    sendMoveCallbacksFlag = info[3]->BooleanValue();
         }
 
-		AsyncQueueWorker(new ColorPicker(callback, progress, showColorWindow, sendMoveCallbacks));
+		AsyncQueueWorker(new ColorPicker(callback, progress, showColorWindowFlag, sendMoveCallbacksFlag));
 	}
 }
 
