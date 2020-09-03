@@ -27,7 +27,7 @@ struct ColorInfo {
 
 class ColorPicker : public Nan::AsyncProgressQueueWorker<ColorInfo> {
 public:
-	ColorPicker(Nan::Callback* cb, Nan::Callback* event);
+	ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindow, bool sendMoveCallbacks);
 	~ColorPicker() override;
 
 	void Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) override;
@@ -38,6 +38,9 @@ private:
 	static bool busy;
 	void GetPixelColorOnCursor();
 	static std::string GetColorHex(COLORREF& ref);
+
+    bool moveCallbacks;
+    bool colorWindow;
 
 	std::thread pickingColorThread;
 	Nan::Callback* m_event;
@@ -56,7 +59,7 @@ private:
 	void PickColor();
 	void PositionColorWindow();
 	void PositionMaskWindow();
-	
+
 	HWND pickerColorWindow;
 	static LRESULT CALLBACK ColorWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK ColorWndHandler(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
