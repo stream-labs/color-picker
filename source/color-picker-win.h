@@ -11,6 +11,7 @@
 	You should have received a copy of the GNU General Public License
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ******************************************************************************/
+#pragma once
 
 #include <nan.h>
 #include <functional>
@@ -18,27 +19,49 @@
 #include <mutex>
 #include <thread>
 
-struct Color {
-    std::string event;
-    std::string hex;
+struct ColorInfo {
+	std::string event;
+	std::string hex;
+	COLORREF color;
 };
 
-class ColorPicker : public Nan::AsyncProgressQueueWorker<Color> {
+class ColorPicker : public Nan::AsyncProgressQueueWorker<ColorInfo> {
 public:
-    ColorPicker(Nan::Callback* cb, Nan::Callback* event);
-    ~ColorPicker() override;
+	ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindow, bool sendMoveCallbacks);
+	~ColorPicker() override;
 
-    void Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) override;
-    void HandleProgressCallback(const Color* data, size_t size) override;
+	void Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) override;
+	void HandleProgressCallback(const ColorInfo* data, size_t size) override;
 
+	static bool IsBusy() { return busy; };
 private:
-    void GetPixelColorOnCursor();
-    static std::string GetColorHex(COLORREF &ref);
+	static bool busy;
+	void GetPixelColorOnCursor();
+	static std::string GetColorHex(COLORREF& ref);
 
-    std::thread m_getColorThread;
-    Nan::Callback* m_event;
-    
-    Color m_colorInfo;
-    HANDLE m_colorEvent = NULL;
-    bool exitWorker = false;
+    bool sendMoveCallbacks;
+    bool showColorWindow;
+
+	std::thread pickingColorThread;
+	Nan::Callback* m_event;
+
+	ColorInfo colorPickedInfo;
+	HANDLE colorPickedEvent = NULL;
+	bool exitWorker = false;
+	POINT lastPoint;
+
+	HCURSOR pickerCursor;
+	HWND pickerMaskWindow;
+	static LRESULT CALLBACK MaskWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK MaksWndHandler(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+
+	void HandleCursorPosition();
+	void PickColor();
+	void PositionColorWindow();
+	void PositionMaskWindow();
+
+	HWND pickerColorWindow;
+	static LRESULT CALLBACK ColorWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	LRESULT CALLBACK ColorWndHandler(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+	void DrawColorWnd();
 };

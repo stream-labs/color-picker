@@ -7,7 +7,9 @@ function startPicking() {
             },
             function() {
                 console.log("finished collecting color");
-            }
+            },
+            true,
+            true
         );
 };
 
@@ -16,4 +18,9 @@ startPicking();
 setTimeout(function() {
     console.log("timeout worked");
     startPicking();
-}, 10000);    
+}, 3000);    
+
+setTimeout(function() {
+    console.log("timeout worked");
+    startPicking();
+}, 13000);    
