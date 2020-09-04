@@ -35,12 +35,13 @@ int ColorWindowHeight = 45;
 using namespace Nan;
 using namespace v8;
 
-ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindowFlag, bool sendMoveCallbacksFlag) :
+ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindowFlag, bool showColorHexFlag, bool sendMoveCallbacksFlag) :
 	AsyncProgressQueueWorker(cb),
 	pickingColorThread(),
 	m_event(event),
-    showColorWindow(showColorWindowFlag),
-    sendMoveCallbacks(sendMoveCallbacksFlag)
+	showColorWindow(showColorWindowFlag),
+	showColorHex(showColorHexFlag),
+	sendMoveCallbacks(sendMoveCallbacksFlag)
 {
 	busy = true;
 	colorPickedEvent = CreateEvent(nullptr, false, false, L"");
@@ -171,16 +172,15 @@ LRESULT CALLBACK ColorPicker::MaksWndHandler(HWND hWnd, UINT message, WPARAM wPa
 {
 	switch (message)
 	{
-    case WM_MOUSEMOVE:
-        GetCursorPos(&lastPoint);
-        PositionColorWindow();
-        break;
+	case WM_MOUSEMOVE:
+		GetCursorPos(&lastPoint);
+		PositionColorWindow();
+		break;
 	case WM_SETCURSOR:
 		SetCursor(pickerCursor);
 		break;
 	case WM_TIMER:
-		if (wParam == IDT_TIMER_OVER_WINDOW)
-		{
+		if (wParam == IDT_TIMER_OVER_WINDOW) {
 			HandleCursorPosition();
 		}
 		break;
@@ -195,8 +195,7 @@ LRESULT CALLBACK ColorPicker::MaksWndHandler(HWND hWnd, UINT message, WPARAM wPa
 		DestroyWindow(pickerMaskWindow);
 		break;
 	case WM_KEYDOWN:
-		if (wParam == VK_ESCAPE)
-		{
+		if (wParam == VK_ESCAPE) {
 			DestroyWindow(pickerMaskWindow);
 		}
 		break;
@@ -234,36 +233,44 @@ void ColorPicker::PickColor()
 			colorInfo.color = colorRef;
 			colorInfo.event = MOUSEMOVE_EVENT;
 			colorPickedInfo = colorInfo;
-            
-            if(sendMoveCallbacks)
-			    SetEvent(colorPickedEvent);
-            
-            RedrawWindow(pickerColorWindow, 0, 0, RDW_INVALIDATE);
+
+			if (sendMoveCallbacks)
+				SetEvent(colorPickedEvent);
+
+			RedrawWindow(pickerColorWindow, 0, 0, RDW_INVALIDATE);
 		}
 	}
 }
 
 void ColorPicker::PositionColorWindow()
 {
+	if (showColorHex) {
+		HDC winDC = GetDC(pickerColorWindow);
+		if (winDC) {
+			RECT rc = { 0 };
+			rc.right = 1000;
+			rc.bottom = 1000;
+			DrawText(winDC, L"0xFFFFFFFF", -1, &rc, DT_CALCRECT);
+			ColorWindowWidth = rc.right + 10;
+			ColorWindowHeight = rc.bottom + 27;
 
-	HDC winDC = GetDC(pickerColorWindow);
-	if (winDC)
-	{
-		RECT rc = { 0 };
-		rc.right = 1000;
-		rc.bottom = 1000;
-		DrawText(winDC, L"0xFFFFFFFF", -1, &rc, DT_CALCRECT);
-		ColorWindowWidth = rc.right + 10;
-		ColorWindowHeight = rc.bottom + 27;
-
-		ReleaseDC(pickerColorWindow, winDC);
+			ReleaseDC(pickerColorWindow, winDC);
+		}
 	}
-    
-    if(showColorWindow)
-    {
-	    SetWindowPos(pickerColorWindow, 0, lastPoint.x + 5, lastPoint.y + 5, ColorWindowWidth, ColorWindowHeight, SWP_SHOWWINDOW);
-	    RedrawWindow(pickerColorWindow, 0, 0, RDW_INVALIDATE);
-    }
+	else {
+		ColorWindowWidth = 50;
+		ColorWindowHeight = 50;
+	}
+
+	if (showColorWindow) {
+		int winX = lastPoint.x;
+		int winY = lastPoint.y;
+		winX += colorWindowLeft ? -ColorWindowWidth - 5 : 15;
+		winY += colorWindowTop ? -ColorWindowHeight - 15 : 5;
+
+		SetWindowPos(pickerColorWindow, 0, winX, winY, ColorWindowWidth, ColorWindowHeight, SWP_SHOWWINDOW);
+		RedrawWindow(pickerColorWindow, 0, 0, RDW_INVALIDATE);
+	}
 }
 
 void ColorPicker::PositionMaskWindow()
@@ -272,15 +279,18 @@ void ColorPicker::PositionMaskWindow()
 	if (under_coursor != pickerMaskWindow) {
 		HMONITOR monitor = MonitorFromPoint(lastPoint, MONITOR_DEFAULTTONULL);
 		if (monitor) {
-			MONITORINFO mi;
-			mi.cbSize = sizeof(MONITORINFO);
-			::GetMonitorInfo(monitor, (LPMONITORINFO)&mi);
-			int width = mi.rcMonitor.right - mi.rcMonitor.left;
-			int height = mi.rcMonitor.bottom - mi.rcMonitor.top;
+			memset(&lastMonitor, 0x00, sizeof(MONITORINFO));
+			lastMonitor.cbSize = sizeof(MONITORINFO);
+			::GetMonitorInfo(monitor, (LPMONITORINFO)&lastMonitor);
+			int width = lastMonitor.rcMonitor.right - lastMonitor.rcMonitor.left;
+			int height = lastMonitor.rcMonitor.bottom - lastMonitor.rcMonitor.top;
 
-			::SetWindowPos(pickerMaskWindow, HWND_TOPMOST, mi.rcMonitor.left, mi.rcMonitor.top, width, height, SWP_SHOWWINDOW);
+			::SetWindowPos(pickerMaskWindow, HWND_TOPMOST, lastMonitor.rcMonitor.left, lastMonitor.rcMonitor.top, width, height, SWP_SHOWWINDOW);
 		}
 	}
+
+	colorWindowLeft = (lastPoint.x + 100 > lastMonitor.rcMonitor.right);
+	colorWindowTop = (lastPoint.y + 100 > lastMonitor.rcMonitor.bottom);
 }
 
 LRESULT CALLBACK ColorPicker::ColorWndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -328,35 +338,52 @@ void ColorPicker::DrawColorWnd()
 		RECT rc;
 		HBRUSH brush;
 
+		if (showColorHex) {
+			rc.left = 2;
+			rc.top = 2;
+			rc.right = ColorWindowWidth - 4;
+			rc.bottom = rc.top + 22;
+			brush = ::CreateSolidBrush(0);
+			::FrameRect(hdc_win, &rc, brush);
+			::DeleteObject(brush);
 
-		rc.left = 2;
-		rc.top = 2;
-		rc.right = ColorWindowWidth - 4;
-		rc.bottom = rc.top + 22;
-		brush = ::CreateSolidBrush(0);
-		::FrameRect(hdc_win, &rc, brush);
-		::DeleteObject(brush);
+			rc.left = 3;
+			rc.top = 3;
+			rc.right = ColorWindowWidth - 5;
+			rc.bottom = rc.top + 20;
+			brush = ::CreateSolidBrush(colorPickedInfo.color);
+			::FillRect(hdc_win, &rc, brush);
+			::DeleteObject(brush);
 
-		rc.left = 3;
-		rc.top = 3;
-		rc.right = ColorWindowWidth - 5;
-		rc.bottom = rc.top + 20;
-		brush = ::CreateSolidBrush(colorPickedInfo.color);
-		::FillRect(hdc_win, &rc, brush);
-		::DeleteObject(brush);
+			rc.left = 0;
+			rc.top = 24;
+			rc.right = ColorWindowWidth;
+			rc.bottom = ColorWindowHeight;
 
-		rc.left = 0;
-		rc.top = 24;
-		rc.right = ColorWindowWidth;
-		rc.bottom = ColorWindowHeight;
+			char buffer[32];
+			snprintf(buffer, sizeof(buffer), "0x%08X ", colorPickedInfo.color);
+			size_t len = strlen(buffer);
+			WCHAR unistring[32];
+			int result = MultiByteToWideChar(CP_OEMCP, 0, buffer, -1, unistring, len + 1);
+			DrawText(hdc_win, (LPWSTR)unistring, -1, &rc, DT_CENTER | DT_BOTTOM);
+		}
+		else {
+			rc.left = 2;
+			rc.top = 2;
+			rc.right = ColorWindowWidth - 4;
+			rc.bottom = ColorWindowHeight - 4;
+			brush = ::CreateSolidBrush(0);
+			::FrameRect(hdc_win, &rc, brush);
+			::DeleteObject(brush);
 
-		char buffer[32];
-		snprintf(buffer, sizeof(buffer), "0x%08X ", colorPickedInfo.color);
-		size_t len = strlen(buffer);
-		WCHAR unistring[32];
-		int result = MultiByteToWideChar(CP_OEMCP, 0, buffer, -1, unistring, len + 1);
-		DrawText(hdc_win, (LPWSTR)unistring, -1, &rc, DT_CENTER | DT_BOTTOM);
-
+			rc.left = 3;
+			rc.top = 3;
+			rc.right = ColorWindowWidth - 5;
+			rc.bottom = ColorWindowHeight - 5;
+			brush = ::CreateSolidBrush(colorPickedInfo.color);
+			::FillRect(hdc_win, &rc, brush);
+			::DeleteObject(brush);
+		}
 		::ReleaseDC(pickerColorWindow, hdc_win);
 	}
 }
@@ -382,23 +409,23 @@ std::string ColorPicker::GetColorHex(COLORREF& ref)
 
 NAN_METHOD(StartColorPicker)
 {
-	if (ColorPicker::IsBusy())
-	{
+	if (ColorPicker::IsBusy()) {
 
 	}
 	else {
 		bool showColorWindowFlag = true;
+		bool showColorHexFlag = false;
 		bool sendMoveCallbacksFlag = false;
 
 		auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
 		auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
-        if(info.Length() == 4)
-        {
-		    showColorWindowFlag = info[2]->BooleanValue();
-		    sendMoveCallbacksFlag = info[3]->BooleanValue();
-        }
+		if (info.Length() == 5) {
+			showColorWindowFlag = info[2]->BooleanValue();
+			showColorHexFlag = info[3]->BooleanValue();
+			sendMoveCallbacksFlag = info[4]->BooleanValue();
+		}
 
-		AsyncQueueWorker(new ColorPicker(callback, progress, showColorWindowFlag, sendMoveCallbacksFlag));
+		AsyncQueueWorker(new ColorPicker(callback, progress, showColorWindowFlag, showColorHexFlag, sendMoveCallbacksFlag));
 	}
 }
 

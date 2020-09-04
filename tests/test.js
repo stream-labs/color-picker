@@ -9,7 +9,8 @@ function startPicking() {
                 console.log("finished collecting color");
             },
             true,
-            true
+            true,
+            false
         );
 };
 
