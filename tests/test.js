@@ -10,7 +10,8 @@ function startPicking() {
             },
             true,
             true,
-            false
+            false,
+            25
         );
 };
 

@@ -20,15 +20,17 @@ Clicking mouse will stop calling a callback.
 	    },
 	    true,
 		true,
-	    true
+	    false, 
+		50
     );
 
 startColorPicker() function has 4 params:
 * callback with color picking events
 * callback when color picking finished
+* flag to enable callbacks with color while mouse moving 
 * flag to show mini window with current color
 * flag to show color hex on miniwindow
-* flag to enable callbacks with color while mouse moving 
+* size of color preview in a miniwindow
 
 ## Data
 	

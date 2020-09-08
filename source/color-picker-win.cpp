@@ -35,15 +35,19 @@ int ColorWindowHeight = 45;
 using namespace Nan;
 using namespace v8;
 
-ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindowFlag, bool showColorHexFlag, bool sendMoveCallbacksFlag) :
+ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindowFlag, bool showColorHexFlag, bool sendMoveCallbacksFlag, int colorWindowSize) :
 	AsyncProgressQueueWorker(cb),
 	pickingColorThread(),
 	m_event(event),
 	showColorWindow(showColorWindowFlag),
 	showColorHex(showColorHexFlag),
-	sendMoveCallbacks(sendMoveCallbacksFlag)
+	sendMoveCallbacks(sendMoveCallbacksFlag),
+	colorPreviewSize(colorWindowSize)
 {
 	busy = true;
+	if (colorPreviewSize < 10)
+		colorPreviewSize = 10;
+
 	colorPickedEvent = CreateEvent(nullptr, false, false, L"");
 }
 
@@ -258,8 +262,8 @@ void ColorPicker::PositionColorWindow()
 		}
 	}
 	else {
-		ColorWindowWidth = 50;
-		ColorWindowHeight = 50;
+		ColorWindowWidth = colorPreviewSize;
+		ColorWindowHeight = colorPreviewSize;
 	}
 
 	if (showColorWindow) {
@@ -416,16 +420,24 @@ NAN_METHOD(StartColorPicker)
 		bool showColorWindowFlag = true;
 		bool showColorHexFlag = false;
 		bool sendMoveCallbacksFlag = false;
+		int  colorWindowSize = 50;
 
 		auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
 		auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
-		if (info.Length() == 5) {
-			showColorWindowFlag = info[2]->BooleanValue();
-			showColorHexFlag = info[3]->BooleanValue();
-			sendMoveCallbacksFlag = info[4]->BooleanValue();
+		if (info.Length() >= 3) {
+			sendMoveCallbacksFlag = info[2]->BooleanValue();
 		}
 
-		AsyncQueueWorker(new ColorPicker(callback, progress, showColorWindowFlag, showColorHexFlag, sendMoveCallbacksFlag));
+		if (info.Length() >= 4) {
+			showColorWindowFlag = info[3]->BooleanValue();
+		}
+
+		if (info.Length() == 6) {
+			showColorHexFlag = info[4]->BooleanValue();
+			colorWindowSize = info[5]->IntegerValue();
+		}
+
+		AsyncQueueWorker(new ColorPicker(callback, progress, showColorWindowFlag, showColorHexFlag, sendMoveCallbacksFlag, colorWindowSize));
 	}
 }
 
