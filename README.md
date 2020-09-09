@@ -18,19 +18,17 @@ Clicking mouse will stop calling a callback.
 	    function() {
 		    console.log("finished collecting color");
 	    },
-	    true,
-		true,
-	    false, 
-		50
+	    { onMouseMoveEnabled: true, showPreview: true, showText: false, previewSize: 35 }
     );
 
-startColorPicker() function has 4 params:
+startColorPicker() function params:
 * callback with color picking events
 * callback when color picking finished
-* flag to enable callbacks with color while mouse moving 
-* flag to show mini window with current color
-* flag to show color hex on miniwindow
-* size of color preview in a miniwindow
+* params:
+** flag to enable callbacks with color while mouse moving 
+** flag to show mini window with current color
+** flag to show color hex on miniwindow
+** size of color preview in a miniwindow
 
 ## Data
 	

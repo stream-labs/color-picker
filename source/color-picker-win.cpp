@@ -19,6 +19,7 @@
 #include <ios>
 #include <iomanip>
 #include <iostream>
+#include <map>
 
 #define MOUSECLICK_EVENT "mouseClick"
 #define MOUSEMOVE_EVENT "mouseMove"
@@ -413,6 +414,8 @@ std::string ColorPicker::GetColorHex(COLORREF& ref)
 
 NAN_METHOD(StartColorPicker)
 {
+
+
 	if (ColorPicker::IsBusy()) {
 
 	}
@@ -424,17 +427,22 @@ NAN_METHOD(StartColorPicker)
 
 		auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
 		auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
-		if (info.Length() >= 3) {
-			sendMoveCallbacksFlag = info[2]->BooleanValue();
-		}
 
-		if (info.Length() >= 4) {
-			showColorWindowFlag = info[3]->BooleanValue();
-		}
-
-		if (info.Length() == 6) {
-			showColorHexFlag = info[4]->BooleanValue();
-			colorWindowSize = info[5]->IntegerValue();
+		if (info[2]->IsObject()) {
+			v8::Local<v8::Object> obj = info[2]->ToObject();
+			v8::Local<v8::Array> props = obj->GetPropertyNames(info.GetIsolate()->GetCurrentContext()).ToLocalChecked();
+			for (unsigned int j = 0; j < props->Length(); j++) {
+				std::string paramName = *v8::String::Utf8Value(props->Get(j)->ToString());
+				if (paramName.compare("onMouseMoveEnabled") == 0) {
+					sendMoveCallbacksFlag = obj->Get(props->Get(j))->BooleanValue();
+				} else if (paramName.compare("showPreview") == 0) {
+					showColorWindowFlag = obj->Get(props->Get(j))->BooleanValue();
+				} else if (paramName.compare("showText") == 0) {
+					showColorHexFlag = obj->Get(props->Get(j))->BooleanValue();
+				} else if (paramName.compare("previewSize") == 0) {
+					colorWindowSize = obj->Get(props->Get(j))->IntegerValue();
+				}
+			}
 		}
 
 		AsyncQueueWorker(new ColorPicker(callback, progress, showColorWindowFlag, showColorHexFlag, sendMoveCallbacksFlag, colorWindowSize));

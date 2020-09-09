@@ -8,10 +8,7 @@ function startPicking() {
             function() {
                 console.log("finished collecting color");
             },
-            true,
-            true,
-            false,
-            25
+            { onMouseMoveEnabled: true, showPreview: true, showText: false, previewSize: 35 }
         );
 };
 
