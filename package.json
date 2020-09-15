@@ -3,12 +3,15 @@
   "version": "1.0.7",
   "main": "main.js",
   "devDependencies": {
-    "es6-promise": "^4.2.8",
     "colors": "^1.4.0",
+    "electron": "6.1.11",
+    "es6-promise": "^4.2.8",
     "fs": "^0.0.1-security",
-    "nan": "2.14.0",
     "path": "^0.12.7",
-    "electron":"6.0.3",
+    "node-addon-api": "^3.0.0",
     "shelljs": "^0.8.4"
+  },
+  "dependencies": {
+    
   }
 }

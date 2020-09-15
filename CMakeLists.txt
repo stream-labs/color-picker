@@ -8,14 +8,14 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(NODEJS_URL "https://atom.io/download/atom-shell" CACHE STRING "Node.JS URL")
-set(NODEJS_NAME "iojs" CACHE STRING "Node.JS Name")
-set(NODEJS_VERSION "v6.0.3" CACHE STRING "Node.JS Version")
+#set(NODEJS_URL "https://atom.io/download/atom-shell" CACHE STRING "Node.JS URL")
+#set(NODEJS_NAME "iojs" CACHE STRING "Node.JS Name")
+#set(NODEJS_VERSION "v6.1.11" CACHE STRING "Node.JS Version")
 
-include(NodeJS)
-include(CPack)
+#include(NodeJS)
+#include(CPack)
 
-nodejs_init()
+#nodejs_init()
 
 # Source, Libraries and Directories
 
@@ -43,11 +43,10 @@ if(WIN32)
 endif()
 
 # Building
+include_directories(${CMAKE_JS_INC})
 
-add_nodejs_module(
-	${PROJECT_NAME}
-	${PROJECT_SOURCE}
-)
+add_library(${PROJECT_NAME} SHARED ${PROJECT_SOURCE} ${CMAKE_JS_SRC})
+#add_nodejs_module( ${PROJECT_NAME} ${PROJECT_SOURCE})
 
 if(WIN32)
 	target_link_libraries(
@@ -85,6 +84,13 @@ if(WIN32)
 		-DUNICODE
 		-D_UNICODE)
 endif()
+
+# Include N-API wrappers
+target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_JS_INC})
+target_include_directories(${PROJECT_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/node_modules/node-addon-api")
+target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
+
+add_definitions(-DNAPI_VERSION=4)
 
 set_target_properties(
 	${PROJECT_NAME}
