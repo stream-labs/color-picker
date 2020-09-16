@@ -38,7 +38,7 @@ public:
 	ColorPicker(Napi::Function cb, Napi::Function progress, bool showColorWindow, bool showColorHexFlag, bool sendMoveCallbacks, int colorWindowSize);
 	~ColorPicker() override;
 
-	void Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) override;
+	void Execute(const Napi::AsyncProgressQueueWorker<ColorInfo>::ExecutionProgress& progress) override;
 	void OnProgress(const ColorInfo* data, size_t size) override;
 
 	static bool IsBusy() { return busy; };

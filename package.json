@@ -5,13 +5,14 @@
   "devDependencies": {
     "colors": "^1.4.0",
     "electron": "6.1.11",
-    "es6-promise": "^4.2.8",
     "fs": "^0.0.1-security",
     "path": "^0.12.7",
     "node-addon-api": "^3.0.0",
     "shelljs": "^0.8.4"
   },
-  "dependencies": {
-    
+  "scripts": {
+    "local:config": "cmake -Bbuild -H. -G\"Visual Studio 16 2019\" -A\"x64\" ",
+    "local:build": "cmake --build build --target install --config RelWithDebInfo",
+    "test": "electron tests/test.js"
   }
 }

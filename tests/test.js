@@ -1,4 +1,7 @@
-const colorPicker = require('../build/RelWithDebInfo/color_picker.node');
+console.log("startPicking before requeired");
+
+var colorPicker = require('../build/RelWithDebInfo/color_picker.node');
+console.log("startPicking after reqired");
 
 function startPicking() {
     console.log("startPicking called");
