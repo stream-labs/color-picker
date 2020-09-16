@@ -11,7 +11,7 @@
     "shelljs": "^0.8.4"
   },
   "scripts": {
-    "local:config": "cmake -Bbuild -H. -G\"Visual Studio 16 2019\" -A\"x64\" ",
+    "local:config": "cmake -Bbuild -H. -G\"Visual Studio 16 2019\" -A\"x64\"  -DCMAKE_INSTALL_PREFIX=\"color-picker\" ",
     "local:build": "cmake --build build --target install --config RelWithDebInfo",
     "test": "electron tests/test.js"
   }
