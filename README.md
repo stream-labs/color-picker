@@ -1,11 +1,9 @@
 
 # color-picker
 
-  
-
 Function **startColorPicker** set a callback what be called each 100ms with a color under cursor.
 
-Clicking mouse will stop calling a callback.
+Click a mouse button to finish picking color.
 
   
 
@@ -30,6 +28,7 @@ startColorPicker() function params:
 ** flag to show color hex on miniwindow
 ** size of color preview in a miniwindow
 
+
 ## Data
 	
 	{ event: 'mouseMove', hex: '0c0c0c' }
@@ -42,23 +41,21 @@ startColorPicker() function params:
 
     yarn install
     
-    mkdir build
+    yarn local:config
     
-    cd build
-    
-    cmake -G "Visual Studio 16 2019" -A x64 ../
-    
-    cmake --build . --target install --config RelWithDebInfo
+    yarn local:build 
 
+    yarn local:test 
   
 
-## Test example
+## Usage code example
 
 File **tests\test.js**
 
   
 
-### To launch
+### Tests
+Launch electron and call to start color picking. Call repeated 3 times at 0, 3, 10 seconds. 
 
-**yarn electron tests\test.js**
+**yarn test**
 

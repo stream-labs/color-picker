@@ -11,12 +11,11 @@ variables:
   WinType: x64
   RuntimeURL: https://atom.io/download/atom-shell
   RuntimeName: iojs
-  RuntimeVersion: v6.0.3
+  RuntimeVersion: v6.1.11
 
 jobs:
 - job: 'Windows64'
-  pool:
-    vmImage: 'windows-2019'
+  pool: 'Default'
   workspace:
     clean: all
 
@@ -45,6 +44,16 @@ jobs:
   - script: './ci/win-build.cmd'
     displayName: 'Build color-picker'
 
+  - powershell: .\ci\run-sentry-cli-azure.ps1
+    env:
+      RootDirectory: $(Build.SourcesDirectory)
+      PDBPath: $(Build.SourcesDirectory)\build\distribute\color-picker
+      SENTRY_AUTH_TOKEN: $(sentryAuth)
+    errorActionPreference: silentlyContinue
+    ignoreLASTEXITCODE: true
+    displayName: 'Prepare pdbs to Sentry'
+    condition: and(succeeded(), contains(variables['Build.SourceBranch'], 'tags'))
+
   - task: ArchiveFiles@2
     displayName: 'Generate artifact'
     inputs:
@@ -60,7 +69,7 @@ jobs:
       sourceFolder: $(Build.SourcesDirectory)
       contents: '*.tar.gz'
       targetFolder: $(Build.ArtifactStagingDirectory)
-  
+
   - task: PublishBuildArtifacts@1
     displayName: 'Publish pipeline artifact'
     inputs:

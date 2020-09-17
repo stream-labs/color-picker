@@ -33,18 +33,16 @@ bool ColorPicker::busy = false;
 int ColorWindowWidth = 75;
 int ColorWindowHeight = 45;
 
-using namespace Nan;
-using namespace v8;
-
-ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindowFlag, bool showColorHexFlag, bool sendMoveCallbacksFlag, int colorWindowSize) :
-	AsyncProgressQueueWorker(cb),
+ColorPicker::ColorPicker(Napi::Function cb, Napi::Function progress, bool showColorWindowFlag, bool showColorHexFlag, bool sendMoveCallbacksFlag, int colorWindowSize) :
+	Napi::AsyncProgressQueueWorker<ColorInfo>(cb),
 	pickingColorThread(),
-	m_event(event),
 	showColorWindow(showColorWindowFlag),
 	showColorHex(showColorHexFlag),
 	sendMoveCallbacks(sendMoveCallbacksFlag),
 	colorPreviewSize(colorWindowSize)
 {
+	m_event.Reset(progress, 1);
+
 	busy = true;
 	if (colorPreviewSize < 10)
 		colorPreviewSize = 10;
@@ -55,12 +53,12 @@ ColorPicker::ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColor
 ColorPicker::~ColorPicker()
 {
 	CloseHandle(colorPickedEvent);
-	delete m_event;
 	busy = false;
 }
 
-void ColorPicker::Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress)
+void ColorPicker::Execute(const Napi::AsyncProgressQueueWorker<ColorInfo>::ExecutionProgress& progress)
 {
+	std::cout << "ColorPicker::Execute" << std::endl;
 	pickingColorThread = std::thread(&ColorPicker::GetPixelColorOnCursor, this);
 
 	while (!exitWorker) {
@@ -74,19 +72,21 @@ void ColorPicker::Execute(const AsyncProgressQueueWorker::ExecutionProgress& pro
 	if (pickingColorThread.joinable()) {
 		pickingColorThread.join();
 	}
+	std::cout << "ColorPicker::Execute finished" << std::endl;
 }
 
-void ColorPicker::HandleProgressCallback(const ColorInfo* data, size_t size)
+void ColorPicker::OnProgress(const ColorInfo* data, size_t size)
 {
-	Nan::HandleScope scope;
+	Napi::Env env = Env();
+	if (!m_event.IsEmpty()) {
+		Napi::Object eventInfo = Napi::Object::New(env);
 
-	v8::Local<v8::Object> eventInfo = Nan::New<v8::Object>();
-	Nan::Set(eventInfo, Nan::New("event").ToLocalChecked(), New<v8::String>(data->event.c_str()).ToLocalChecked());
-	Nan::Set(eventInfo, Nan::New("hex").ToLocalChecked(), New<v8::String>(data->hex.c_str()).ToLocalChecked());
-	v8::Local<v8::Value> argv[] = { eventInfo };
+		// Assign values to properties
+		eventInfo.Set("event", data->event.c_str());
+		eventInfo.Set("hex", data->hex.c_str());
 
-	AsyncResource resource("color-picker:Event");
-	m_event->Call(1, argv, &resource);
+		m_event.Call(Receiver().Value(), { eventInfo  });
+	}
 }
 
 void ColorPicker::GetPixelColorOnCursor()
@@ -412,46 +412,53 @@ std::string ColorPicker::GetColorHex(COLORREF& ref)
 
 /* NODE FUNCTIONS */
 
-NAN_METHOD(StartColorPicker)
+Napi::Value StartColorPicker(const Napi::CallbackInfo& info)
 {
-
-
+	std::cout << "StartColorPicker called" << std::endl;
 	if (ColorPicker::IsBusy()) {
-
+		return  info.Env().Undefined();
 	}
 	else {
+		std::cout << "StartColorPicker not busy" << std::endl;
 		bool showColorWindowFlag = true;
 		bool showColorHexFlag = false;
 		bool sendMoveCallbacksFlag = false;
 		int  colorWindowSize = 50;
-
-		auto* progress = new Callback(To<v8::Function>(info[0]).ToLocalChecked());
-		auto* callback = new Callback(To<v8::Function>(info[1]).ToLocalChecked());
-
-		if (info[2]->IsObject()) {
-			v8::Local<v8::Object> obj = info[2]->ToObject();
-			v8::Local<v8::Array> props = obj->GetPropertyNames(info.GetIsolate()->GetCurrentContext()).ToLocalChecked();
-			for (unsigned int j = 0; j < props->Length(); j++) {
-				std::string paramName = *v8::String::Utf8Value(props->Get(j)->ToString());
+    
+		Napi::Function progress = info[0].As<Napi::Function>();
+		Napi::Function callback = info[1].As<Napi::Function>();
+		std::cout << "StartColorPicker before parsing params" << std::endl;
+		if (info[2].IsObject()) {
+			Napi::Object obj = info[2].As<Napi::Object>();
+			Napi::Array props = obj.GetPropertyNames();
+			for (unsigned int j = 0; j < props.Length(); j++) {
+				std::cout << "StartColorPicker parsing a param " << j << std::endl;
+				std::string paramName = props.Get(j).As<Napi::String>().Utf8Value();
 				if (paramName.compare("onMouseMoveEnabled") == 0) {
-					sendMoveCallbacksFlag = obj->Get(props->Get(j))->BooleanValue();
+					sendMoveCallbacksFlag = obj.Get(props.Get(j)).As<Napi::Boolean>().Value();
 				} else if (paramName.compare("showPreview") == 0) {
-					showColorWindowFlag = obj->Get(props->Get(j))->BooleanValue();
+					showColorWindowFlag = obj.Get(props.Get(j)).As<Napi::Boolean>().Value();
 				} else if (paramName.compare("showText") == 0) {
-					showColorHexFlag = obj->Get(props->Get(j))->BooleanValue();
+					showColorHexFlag = obj.Get(props.Get(j)).As<Napi::Boolean>().Value();
 				} else if (paramName.compare("previewSize") == 0) {
-					colorWindowSize = obj->Get(props->Get(j))->IntegerValue();
+					colorWindowSize = obj.Get(props.Get(j)).As<Napi::Number>().Int32Value();
 				}
 			}
 		}
-
-		AsyncQueueWorker(new ColorPicker(callback, progress, showColorWindowFlag, showColorHexFlag, sendMoveCallbacksFlag, colorWindowSize));
+		std::cout << "StartColorPicker create worker" << std::endl;
+		ColorPicker * worker = new ColorPicker(callback, progress, showColorWindowFlag, showColorHexFlag, sendMoveCallbacksFlag, colorWindowSize);
+		std::cout << "StartColorPicker return worker" << std::endl;
+		worker->Queue();
+		return Napi::External<ColorPicker>::New(info.Env(), worker);
 	}
+	
 }
 
-NAN_MODULE_INIT(Init)
+static Napi::Object Init(Napi::Env env, Napi::Object exports)
 {
-	Nan::Set(target, New<String>("startColorPicker").ToLocalChecked(), GetFunction(New<FunctionTemplate>(StartColorPicker)).ToLocalChecked());
+	std::cout << "StartColorPicker Init" << std::endl;
+	exports.Set(Napi::String::New(env, "startColorPicker"), Napi::Function::New(env, StartColorPicker));
+	return exports;
 }
 
-NODE_MODULE(color_picker, Init)
+NODE_API_MODULE(color_picker, Init)

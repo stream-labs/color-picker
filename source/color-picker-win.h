@@ -13,11 +13,19 @@
 ******************************************************************************/
 #pragma once
 
-#include <nan.h>
+#include <napi.h>
 #include <functional>
 #include <string>
 #include <mutex>
 #include <thread>
+
+
+#include <stdlib.h>
+#include <malloc.h>
+#include <memory.h>
+#include <tchar.h>
+
+#include "util-win.h"
 
 struct ColorInfo {
 	std::string event;
@@ -25,13 +33,13 @@ struct ColorInfo {
 	COLORREF color;
 };
 
-class ColorPicker : public Nan::AsyncProgressQueueWorker<ColorInfo> {
+class ColorPicker : public Napi::AsyncProgressQueueWorker<ColorInfo> {
 public:
-	ColorPicker(Nan::Callback* cb, Nan::Callback* event, bool showColorWindow, bool showColorHexFlag, bool sendMoveCallbacks, int colorWindowSize);
+	ColorPicker(Napi::Function cb, Napi::Function progress, bool showColorWindow, bool showColorHexFlag, bool sendMoveCallbacks, int colorWindowSize);
 	~ColorPicker() override;
 
-	void Execute(const AsyncProgressQueueWorker::ExecutionProgress& progress) override;
-	void HandleProgressCallback(const ColorInfo* data, size_t size) override;
+	void Execute(const Napi::AsyncProgressQueueWorker<ColorInfo>::ExecutionProgress& progress) override;
+	void OnProgress(const ColorInfo* data, size_t size) override;
 
 	static bool IsBusy() { return busy; };
 private:
@@ -45,7 +53,7 @@ private:
 	int  colorPreviewSize;
 
 	std::thread pickingColorThread;
-	Nan::Callback* m_event;
+	Napi::FunctionReference m_event;
 
 	ColorInfo colorPickedInfo;
 	HANDLE colorPickedEvent = NULL;
