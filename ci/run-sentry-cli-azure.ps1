@@ -8,4 +8,4 @@ $output = "$env:ROOTDIRECTORY\dump_syms.exe"
 $wc = New-Object System.Net.WebClient
 $wc.DownloadFile($url, $output)
 
-.\dump_syms.exe $env:PDBPATH\color-picker\color-picker.pdb > $env:PDBPATH\color-picker\color-picker.sym
+.\dump_syms.exe $env:PDBPATH\color-picker\color_picker.pdb > $env:PDBPATH\color-picker\color_picker.sym
