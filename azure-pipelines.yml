@@ -48,7 +48,7 @@ jobs:
   - powershell: .\ci\run-sentry-cli-azure.ps1
     env:
       RootDirectory: $(Build.SourcesDirectory)
-      PDBPath: $(Build.SourcesDirectory)\distribute
+      PDBPath: $(Build.SourcesDirectory)\build\distribute
       SENTRY_AUTH_TOKEN: $(sentryAuth)
     errorActionPreference: silentlyContinue
     ignoreLASTEXITCODE: true
