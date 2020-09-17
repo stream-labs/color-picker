@@ -9,9 +9,13 @@ $wc = New-Object System.Net.WebClient
 $wc.DownloadFile($url, $output)
 
 dir $env:ROOTDIRECTORY
+
 dir $env:PDBPATH
-dir $env:PDBPATH\color-picker\
 
-.\dump_syms.exe $env:PDBPATH\color-picker\color_picker.pdb > $env:PDBPATH\color-picker\color_picker.sym
+.\dump_syms.exe $env:PDBPATH\color_picker.pdb  > $env:PDBPATH\color_picker.sym
 
-.\sentry-cli.exe upload-dif --log-level DEBUG --org streamlabs-obs --project obs-client $env:PDBPATH\color-picker\color_picker.sym
+.\sentry-cli.exe upload-dif --log-level DEBUG --org streamlabs-obs --project obs-client $env:PDBPATH\color_picker.sym
+.\sentry-cli.exe upload-dif --log-level DEBUG --org streamlabs-obs --project obs-client -t $env:PDBPATH\color_picker.pdb
+
+dir $env:PDBPATH
+
