@@ -45,7 +45,7 @@ jobs:
   - script: './ci/win-build.cmd'
     displayName: 'Build color-picker'
 
-- powershell: |
+  - powershell: |
       mkdir syms
       mkdir syms\ascii
       mkdir syms\ascii\client
