@@ -87,16 +87,6 @@ void ColorPicker::OnProgress(const ColorInfo* data, size_t size)
 
 		m_event.Call(Receiver().Value(), { eventInfo  });
 	}
-
-	// Nan::HandleScope scope;
-
-	// v8::Local<v8::Object> eventInfo = Nan::New<v8::Object>();
-	// Nan::Set(eventInfo, Nan::New("event").ToLocalChecked(), New<v8::String>(.c_str()).ToLocalChecked());
-	// Nan::Set(eventInfo, Nan::New("hex").ToLocalChecked(), New<v8::String>().ToLocalChecked());
-	// v8::Local<v8::Value> argv[] = { eventInfo };
-
-	// AsyncResource resource("color-picker:Event");
-	// m_event->Call(1, argv, &resource);
 }
 
 void ColorPicker::GetPixelColorOnCursor()
@@ -426,7 +416,7 @@ Napi::Value StartColorPicker(const Napi::CallbackInfo& info)
 {
 	std::cout << "StartColorPicker called" << std::endl;
 	if (ColorPicker::IsBusy()) {
-		return Napi::Object::New(info.Env());
+		return  info.Env().Undefined();
 	}
 	else {
 		std::cout << "StartColorPicker not busy" << std::endl;
