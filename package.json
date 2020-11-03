@@ -4,7 +4,7 @@
   "main": "main.js",
   "devDependencies": {
     "colors": "^1.4.0",
-    "electron": "6.1.11",
+    "electron": "9.3.3",
     "fs": "^0.0.1-security",
     "path": "^0.12.7",
     "node-addon-api": "^3.0.0",

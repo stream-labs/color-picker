@@ -11,7 +11,7 @@ variables:
   WinType: x64
   RuntimeURL: https://atom.io/download/atom-shell
   RuntimeName: iojs
-  RuntimeVersion: v6.1.11
+  RuntimeVersion: v9.3.3
 
 jobs:
 - job: 'Windows64'
