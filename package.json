@@ -4,10 +4,10 @@
   "main": "main.js",
   "devDependencies": {
     "colors": "^1.4.0",
-    "electron": "9.3.3",
+    "electron": "13.4.0",
     "fs": "^0.0.1-security",
     "path": "^0.12.7",
-    "node-addon-api": "^3.0.0",
+    "node-addon-api": "^4.2.0",
     "shelljs": "^0.8.4"
   },
   "scripts": {

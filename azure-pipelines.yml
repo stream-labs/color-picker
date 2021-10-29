@@ -11,7 +11,7 @@ variables:
   WinType: x64
   RuntimeURL: https://atom.io/download/atom-shell
   RuntimeName: iojs
-  RuntimeVersion: v9.3.3
+  RuntimeVersion: v13.4.0
 
 jobs:
 - job: 'Windows64'
@@ -32,7 +32,7 @@ jobs:
   - task: NodeTool@0
     displayName: 'Install Node'
     inputs:
-      versionSpec: '10.x'
+      versionSpec: '14.x'
 
   - script: 'yarn install'
     displayName: 'Install dependencies'
