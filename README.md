@@ -57,5 +57,5 @@ File **tests\test.js**
 ### Tests
 Launch electron and call to start color picking. Call repeated 3 times at 0, 3, 10 seconds. 
 
-**yarn test**
+**yarn test** 
 
