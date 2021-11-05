@@ -295,7 +295,7 @@ function(nodejs_init)
     endif()
 
     foreach(HEADER ${HEADERS_CHECKSUMS})
-        message(STATUS "Found headers archive: ${HEADER}")
+        message("Found headers archive: ${HEADER}")
         string(REGEX MATCH ${HEADERS_MATCH} HEADERS_CHECKSUM ${HEADER})
 
         if (HEADERS_CHECKSUM AND CMAKE_MATCH_3 STREQUAL NAME)
@@ -374,7 +374,7 @@ function(nodejs_init)
         )
 
         foreach(HEADER_PATH ${NODEJS_HEADERS_SEARCH_PATHS})
-            message(STATUS "Searching path for headers: ${HEADER_PATH}")
+            message("Searching path for headers: ${HEADER_PATH}")
 
             find_path(NODEJS_HEADERS_PATH
                 NAMES src include
@@ -640,7 +640,7 @@ function(add_nodejs_module NAME)
         CXX_VISIBILITY_PRESET hidden
         POSITION_INDEPENDENT_CODE TRUE
         CMAKE_CXX_STANDARD_REQUIRED TRUE
-        CXX_STANDARD 11
+        CXX_STANDARD 17
     )
 
     # Handle link flag cases properly

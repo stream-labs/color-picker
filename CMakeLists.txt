@@ -9,11 +9,13 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 SET(NODEJS_URL "https://atom.io/download/atom-shell" CACHE STRING "Node.JS URL")
 SET(NODEJS_NAME "iojs" CACHE STRING "Node.JS Name")
-SET(NODEJS_VERSION "v9.3.3" CACHE STRING "Node.JS Version")
+SET(NODEJS_VERSION "v13.4.0" CACHE STRING "Node.JS Version")
 
 include(NodeJS)
 
 nodejs_init()
+
+SET(PROJECT_INCLUDE_PATHS ${NODEJS_INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/source/")
 
 # Source, Libraries and Directories
 set(
@@ -24,22 +26,6 @@ set(
 	"${PROJECT_SOURCE_DIR}/source/util-win.h"
 	"${PROJECT_SOURCE_DIR}/res/resource.rc"
 )
-
-# Building
-
-add_nodejs_module(${PROJECT_NAME} ${PROJECT_SOURCE} )
-
-set_target_properties( ${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node" )
-
-target_compile_definitions(
-	${PROJECT_NAME}
-	PRIVATE
-	-D_CRT_SECURE_NO_WARNINGS
-	-DUNICODE
-	-D_UNICODE)
-
-target_compile_definitions(${PROJECT_NAME} PRIVATE BUILDING_NODE_EXTENSION)
-
 # Include N-API wrappers
 execute_process(COMMAND node -p "require('node-addon-api').include"
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -47,10 +33,41 @@ execute_process(COMMAND node -p "require('node-addon-api').include"
         )
 string(REPLACE "\n" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
 string(REPLACE "\"" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
-target_include_directories(${PROJECT_NAME} PRIVATE ${NODE_ADDON_API_DIR})
 
-add_definitions(-DNAPI_VERSION=4)
+list(APPEND PROJECT_INCLUDE_PATHS ${NODE_ADDON_API_DIR})
 
+add_definitions(-DNAPI_VERSION=7)
+
+# Building
+
+add_nodejs_module(${PROJECT_NAME} ${PROJECT_SOURCE} )
+
+target_link_libraries(${PROJECT_NAME} ${PROJECT_LIBRARIES})
+target_include_directories(${PROJECT_NAME} PUBLIC  ${PROJECT_INCLUDE_PATHS})
+set_property (TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 17 )
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE -DUNICODE -D_UNICODE BUILDING_NODE_EXTENSION -D_CRT_SECURE_NO_WARNINGS)
+
+set(CompilerFlags
+	CMAKE_CXX_FLAGS
+	CMAKE_CXX_FLAGS_DEBUG
+	CMAKE_CXX_FLAGS_RELEASE
+	CMAKE_CXX_FLAGS_RELWITHDEBINFO
+	CMAKE_C_FLAGS
+	CMAKE_C_FLAGS_DEBUG
+	CMAKE_C_FLAGS_RELEASE
+	CMAKE_C_FLAGS_RELWITHDEBINFO
+	)
+foreach(CompilerFlag ${CompilerFlags})
+  string(REPLACE "/MD" "/MT" ${CompilerFlag} "${${CompilerFlag}}")
+endforeach()
+
+SET_TARGET_PROPERTIES(
+	${PROJECT_NAME}
+	PROPERTIES
+	PREFIX ""
+	SUFFIX ".node"
+)
 # Distribute
 
 install(
