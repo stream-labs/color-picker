@@ -19,7 +19,7 @@ env:
   BUILD_DIRECTORY: "build"
   DISTRIBUTE_DIRECTORY: "distribute"
   RELEASE_BUCKET: "obs-studio-deployment"
-  ELECTRON_VERSION: "v22.3.3"
+  ELECTRON_VERSION: "v25.8.0"
 
 permissions:
   contents: read
