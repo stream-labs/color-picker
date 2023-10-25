@@ -3,7 +3,7 @@
   "version": "1.0.7",
   "main": "main.js",
   "devDependencies": {
-    "colors": "^1.6.0",
+    "colors": "^1.4.0",
     "electron": "25.9.3",
     "fs": "^0.0.1-security",
     "path": "^0.12.7",
